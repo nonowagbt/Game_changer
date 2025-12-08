@@ -83,7 +83,9 @@ export default function HomeScreen() {
   };
 
   const getProgressPercentage = (type) => {
-    return Math.min(100, (progress[type] / goals[type]) * 100);
+    const currentProgress = progress[type] || 0;
+    const goal = goals[type] || 1;
+    return Math.min(100, (currentProgress / goal) * 100);
   };
 
   return (
@@ -134,12 +136,15 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.progressFill,
-                { width: `${getProgressPercentage('water')}%` },
+                { 
+                  width: `${getProgressPercentage('water')}%`,
+                  backgroundColor: '#3B82F6',
+                },
               ]}
             />
           </View>
           <Text style={styles.progressText}>
-            {progress.water.toFixed(1)}L / {goals.water}L
+            {(progress.water || 0).toFixed(1)}L / {goals.water}L
           </Text>
         </View>
 
@@ -224,7 +229,7 @@ export default function HomeScreen() {
             />
           </View>
           <Text style={styles.progressText}>
-            {Math.round(progress.calories)} / {goals.calories} kcal
+            {Math.round(progress.calories || 0)} / {goals.calories} kcal
           </Text>
         </View>
 
