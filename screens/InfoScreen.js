@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals } from '../utils/db';
+import { signOut } from '../utils/auth';
 import { colors } from '../theme/colors';
 import { 
   calculateCalories, 
@@ -757,11 +758,36 @@ export default function InfoScreen() {
     </View>
   );
 
+  const handleLogout = async () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+            // La navigation sera gérée par App.js qui détecte le changement
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Ionicons name="person-circle" size={80} color={colors.primary} />
         <Text style={styles.headerTitle}>Mes Informations</Text>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out-outline" size={20} color={colors.error} />
+          <Text style={styles.logoutButtonText}>Déconnexion</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Onglets */}
@@ -846,6 +872,22 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.primary,
     marginTop: 10,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 15,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  logoutButtonText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '600',
   },
   tabsContainer: {
     flexDirection: 'row',
