@@ -9,10 +9,12 @@ import {
   Modal,
   Alert,
   FlatList,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getWorkouts, saveWorkouts } from '../utils/db';
 import { colors } from '../theme/colors';
+import ExerciseImagePicker from '../components/ExerciseImagePicker';
 
 export default function WorkoutScreen() {
   const [workouts, setWorkouts] = useState([]);
@@ -28,6 +30,7 @@ export default function WorkoutScreen() {
     defaultReps: '',
     defaultWeight: '',
     defaultRestTime: '',
+    imageUri: null,
   });
   const [series, setSeries] = useState([]);
 
@@ -104,6 +107,7 @@ export default function WorkoutScreen() {
         defaultReps: exercise.defaultReps?.toString() || '',
         defaultWeight: exercise.defaultWeight?.toString() || '',
         defaultRestTime: exercise.defaultRestTime?.toString() || '',
+        imageUri: exercise.imageUri || null,
       });
       setSeries(exercise.series.map((s, index) => ({
         id: index,
@@ -117,6 +121,7 @@ export default function WorkoutScreen() {
     }
     setShowExerciseForm(true);
   };
+
 
   const handleUpdateSeries = () => {
     const numSets = parseInt(exerciseForm.sets) || 0;
@@ -195,6 +200,7 @@ export default function WorkoutScreen() {
       defaultReps: parseInt(exerciseForm.defaultReps) || 0,
       defaultWeight: parseFloat(exerciseForm.defaultWeight) || 0,
       defaultRestTime: parseInt(exerciseForm.defaultRestTime) || 0,
+      imageUri: exerciseForm.imageUri || null,
       series: finalSeries.map((s) => ({
         reps: parseInt(s.reps) || 0,
         weight: parseFloat(s.weight) || 0,
@@ -223,6 +229,7 @@ export default function WorkoutScreen() {
       defaultReps: '',
       defaultWeight: '',
       defaultRestTime: '',
+      imageUri: null,
     });
     setSeries([]);
     setEditingExercise(null);
@@ -266,43 +273,53 @@ export default function WorkoutScreen() {
 
   const renderExerciseItem = ({ item, index }) => (
     <View style={styles.exerciseItem}>
-      <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseName}>{item.name}</Text>
-        <View style={styles.exerciseActions}>
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              handleOpenExerciseForm(item);
-            }}
-            style={styles.iconButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={(e) => {
-              e.stopPropagation();
-              handleDeleteExercise(item.id);
-            }}
-            style={styles.iconButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="trash-outline" size={18} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.exerciseDetails}>
-        <Text style={styles.exerciseDetailText}>
-          {item.series.length} série{item.series.length > 1 ? 's' : ''}
-        </Text>
-        {item.series.map((serie, idx) => (
-          <View key={idx} style={styles.serieRow}>
-            <Text style={styles.serieText}>
-              Série {idx + 1}: {serie.reps} reps × {serie.weight} kg
-              {serie.restTime > 0 && ` (repos: ${serie.restTime}s)`}
-            </Text>
+      <View style={styles.exerciseContent}>
+        {item.imageUri && (
+          <Image
+            source={{ uri: item.imageUri }}
+            style={styles.exerciseImage}
+          />
+        )}
+        <View style={styles.exerciseInfo}>
+          <View style={styles.exerciseHeader}>
+            <Text style={styles.exerciseName}>{item.name}</Text>
+            <View style={styles.exerciseActions}>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleOpenExerciseForm(item);
+                }}
+                style={styles.iconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="create-outline" size={18} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleDeleteExercise(item.id);
+                }}
+                style={styles.iconButton}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="trash-outline" size={18} color={colors.error} />
+              </TouchableOpacity>
+            </View>
           </View>
-        ))}
+          <View style={styles.exerciseDetails}>
+            <Text style={styles.exerciseDetailText}>
+              {item.series.length} série{item.series.length > 1 ? 's' : ''}
+            </Text>
+            {item.series.map((serie, idx) => (
+              <View key={idx} style={styles.serieRow}>
+                <Text style={styles.serieText}>
+                  Série {idx + 1}: {serie.reps} reps × {serie.weight} kg
+                  {serie.restTime > 0 && ` (repos: ${serie.restTime}s)`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -468,6 +485,16 @@ export default function WorkoutScreen() {
                       placeholder="Ex: Développé couché"
                     />
                   </View>
+
+                  <ExerciseImagePicker
+                    imageUri={exerciseForm.imageUri}
+                    onImageSelected={(uri) =>
+                      setExerciseForm({ ...exerciseForm, imageUri: uri })
+                    }
+                    onImageRemoved={() =>
+                      setExerciseForm({ ...exerciseForm, imageUri: null })
+                    }
+                  />
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Nombre de séries</Text>
@@ -748,6 +775,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  exerciseContent: {
+    flexDirection: 'row',
+    gap: 15,
+  },
+  exerciseImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+  },
+  exerciseInfo: {
+    flex: 1,
   },
   exerciseHeader: {
     flexDirection: 'row',
