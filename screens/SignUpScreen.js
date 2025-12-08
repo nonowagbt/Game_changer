@@ -18,6 +18,7 @@ export default function SignUpScreen({ onSignUp, onBack }) {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
+    username: '',
     email: '',
     phone: '',
     password: '',
@@ -30,8 +31,12 @@ export default function SignUpScreen({ onSignUp, onBack }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
 
   const handleSignUp = async () => {
+    // Réinitialiser les erreurs
+    setUsernameError('');
+
     // Validation
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
       Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
@@ -62,7 +67,12 @@ export default function SignUpScreen({ onSignUp, onBack }) {
         },
       ]);
     } catch (error) {
-      Alert.alert('Erreur', error.message);
+      // Si l'erreur concerne le username, l'afficher sous le champ
+      if (error.message.includes('username')) {
+        setUsernameError(error.message);
+      } else {
+        Alert.alert('Erreur', error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -111,6 +121,29 @@ export default function SignUpScreen({ onSignUp, onBack }) {
                 placeholderTextColor={colors.textTertiary}
               />
             </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username</Text>
+            <View style={[styles.inputContainer, usernameError && styles.inputContainerError]}>
+              <Ionicons name="at" size={20} color={usernameError ? colors.error : colors.textSecondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.inputInContainer}
+                value={formData.username}
+                onChangeText={(value) => {
+                  updateFormData('username', value);
+                  setUsernameError(''); // Réinitialiser l'erreur quand l'utilisateur tape
+                }}
+                autoCapitalize="none"
+                placeholder="jean_dupont"
+                placeholderTextColor={colors.textTertiary}
+              />
+            </View>
+            {usernameError ? (
+              <Text style={styles.errorText}>{usernameError}</Text>
+            ) : (
+              <Text style={styles.hintText}>Optionnel - Utilisé pour que vos amis vous trouvent</Text>
+            )}
           </View>
 
           <View style={styles.inputGroup}>
@@ -337,6 +370,18 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 12,
+  },
+  inputContainerError: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
   input: {
     backgroundColor: colors.cardBackground,
     borderWidth: 1,
@@ -345,6 +390,32 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: colors.text,
+  },
+  inputInContainer: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+  },
+  inputIcon: {
+    marginLeft: 15,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+  errorText: {
+    color: colors.error,
+    fontSize: 12,
+    marginTop: 5,
+    fontWeight: '600',
+  },
+  hintText: {
+    color: colors.textTertiary,
+    fontSize: 12,
+    marginTop: 5,
+    fontStyle: 'italic',
   },
   passwordContainer: {
     flexDirection: 'row',

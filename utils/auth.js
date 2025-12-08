@@ -49,7 +49,7 @@ const mongoRequest = async (action, collection, filter = {}, additionalData = {}
 
 // Créer un compte
 export const signUp = async (userData) => {
-  const { email, password, firstName, lastName, phone, weight, height, age, gender } = userData;
+  const { email, password, firstName, lastName, username, phone, weight, height, age, gender } = userData;
 
   // Validation
   if (!email || !password || !firstName || !lastName) {
@@ -66,12 +66,21 @@ export const signUp = async (userData) => {
     throw new Error('Cet email est déjà utilisé');
   }
 
+  // Vérifier si le username existe déjà (si fourni)
+  if (username && username.trim()) {
+    const existingUsername = await getUserByUsername(username.trim());
+    if (existingUsername) {
+      throw new Error('Ce username est déjà utilisé');
+    }
+  }
+
   const user = {
     id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     email,
     password, // En production, il faudrait hasher le mot de passe
     firstName,
     lastName,
+    username: username ? username.trim() : null,
     phone: phone || '',
     weight: weight ? parseFloat(weight) : null,
     height: height ? parseFloat(height) : null,
@@ -180,6 +189,26 @@ const getUserByEmail = async (email) => {
   }
 };
 
+// Obtenir un utilisateur par username
+const getUserByUsername = async (username) => {
+  if (!username) return null;
+  
+  if (mongoConfigured) {
+    try {
+      const result = await mongoRequest('findOne', 'users', { username });
+      return result.document || null;
+    } catch (error) {
+      console.error('Error getting user by username from MongoDB:', error);
+      // Fallback vers AsyncStorage
+      const users = await getUsers();
+      return users.find(u => u.username === username) || null;
+    }
+  } else {
+    const users = await getUsers();
+    return users.find(u => u.username === username) || null;
+  }
+};
+
 // Obtenir tous les utilisateurs (pour AsyncStorage)
 const getUsers = async () => {
   try {
@@ -198,6 +227,7 @@ const saveUserInfoFromSignup = async (user) => {
   
   const userInfo = {
     name: `${user.firstName} ${user.lastName}`,
+    username: user.username || null,
     email: user.email,
     phone: user.phone,
     weight: user.weight,
