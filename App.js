@@ -9,6 +9,7 @@ import HomeScreen from './screens/HomeScreen';
 import WorkoutScreen from './screens/WorkoutScreen';
 import InfoScreen from './screens/InfoScreen';
 import ScannerScreen from './screens/ScannerScreen';
+import FriendsScreen from './screens/FriendsScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import { colors } from './theme/colors';
@@ -20,21 +21,23 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
+          tabBarIcon: ({ focused, color, size }) => {
+            let iconName;
 
-          if (route.name === 'Accueil') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Entraînements') {
-            iconName = focused ? 'barbell' : 'barbell-outline';
-          } else if (route.name === 'Scanner') {
-            iconName = focused ? 'camera' : 'camera-outline';
-          } else if (route.name === 'Informations') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
+            if (route.name === 'Accueil') {
+              iconName = focused ? 'home' : 'home-outline';
+            } else if (route.name === 'Entraînements') {
+              iconName = focused ? 'barbell' : 'barbell-outline';
+            } else if (route.name === 'Scanner') {
+              iconName = focused ? 'camera' : 'camera-outline';
+            } else if (route.name === 'Amis') {
+              iconName = focused ? 'people' : 'people-outline';
+            } else if (route.name === 'Informations') {
+              iconName = focused ? 'person' : 'person-outline';
+            }
 
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
+            return <Ionicons name={iconName} size={size} color={color} />;
+          },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: {
@@ -57,6 +60,7 @@ function MainTabs() {
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Entraînements" component={WorkoutScreen} />
       <Tab.Screen name="Scanner" component={ScannerScreen} />
+      <Tab.Screen name="Amis" component={FriendsScreen} />
       <Tab.Screen name="Informations" component={InfoScreen} />
     </Tab.Navigator>
   );
