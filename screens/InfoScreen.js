@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals } from '../utils/db';
@@ -18,14 +19,15 @@ import {
   getProgramName, 
   getProgramDescription 
 } from '../utils/goalCalculator';
+import ProfileImagePicker from '../components/ProfileImagePicker';
 
 export default function InfoScreen() {
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'measurements', 'goals'
   
   // Informations personnelles
-  const [personalInfo, setPersonalInfo] = useState({ email: '', name: '', phone: '', age: 30, gender: 'male' });
+  const [personalInfo, setPersonalInfo] = useState({ email: '', name: '', username: '', phone: '', age: 30, gender: 'male', profileImage: null });
   const [editingPersonal, setEditingPersonal] = useState(false);
-  const [personalForm, setPersonalForm] = useState({ email: '', name: '', phone: '', age: '30', gender: 'male' });
+  const [personalForm, setPersonalForm] = useState({ email: '', name: '', username: '', phone: '', age: '30', gender: 'male', profileImage: null });
 
   // Mensurations
   const [measurements, setMeasurements] = useState({ weight: null, height: null });
@@ -52,16 +54,20 @@ export default function InfoScreen() {
     setPersonalInfo({
       email: userInfo.email || '',
       name: userInfo.name || '',
+      username: userInfo.username || '',
       phone: userInfo.phone || '',
       age: userInfo.age || 30,
       gender: userInfo.gender || 'male',
+      profileImage: userInfo.profileImage || null,
     });
     setPersonalForm({
       email: userInfo.email || '',
       name: userInfo.name || '',
+      username: userInfo.username || '',
       phone: userInfo.phone || '',
       age: (userInfo.age || 30).toString(),
       gender: userInfo.gender || 'male',
+      profileImage: userInfo.profileImage || null,
     });
 
     // Mensurations
@@ -93,9 +99,11 @@ export default function InfoScreen() {
     const newInfo = {
       email: personalForm.email.trim(),
       name: personalForm.name.trim(),
+      username: personalForm.username.trim(),
       phone: personalForm.phone.trim(),
       age: age,
       gender: personalForm.gender,
+      profileImage: personalForm.profileImage,
     };
 
     // Récupérer les autres infos existantes
@@ -250,6 +258,12 @@ export default function InfoScreen() {
 
         {editingPersonal ? (
           <View style={styles.form}>
+            <ProfileImagePicker
+              imageUri={personalForm.profileImage}
+              onImageSelected={(uri) => setPersonalForm({ ...personalForm, profileImage: uri })}
+              onImageRemoved={() => setPersonalForm({ ...personalForm, profileImage: null })}
+            />
+
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Nom</Text>
               <TextInput
@@ -259,6 +273,19 @@ export default function InfoScreen() {
                   setPersonalForm({ ...personalForm, name: text })
                 }
                 placeholder="Ex: Jean Dupont"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Username</Text>
+              <TextInput
+                style={styles.input}
+                value={personalForm.username}
+                onChangeText={(text) =>
+                  setPersonalForm({ ...personalForm, username: text })
+                }
+                autoCapitalize="none"
+                placeholder="Ex: jean_dupont"
               />
             </View>
 
@@ -356,6 +383,43 @@ export default function InfoScreen() {
           </View>
         ) : (
           <View style={styles.infoDisplay}>
+            {/* Section profil visible par les amis */}
+            <View style={styles.profileSection}>
+              <Text style={styles.profileSectionTitle}>Votre profil public</Text>
+              <Text style={styles.profileSectionSubtitle}>
+                Ces informations sont visibles par vos amis
+              </Text>
+              
+              <View style={styles.profileImageDisplayContainer}>
+                {personalInfo.profileImage ? (
+                  <Image
+                    source={{ uri: personalInfo.profileImage }}
+                    style={styles.profileImageDisplay}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.profileImagePlaceholder}>
+                    <Ionicons name="person" size={50} color={colors.textSecondary} />
+                  </View>
+                )}
+              </View>
+
+            </View>
+
+            <View style={styles.divider} />
+
+            {personalInfo.username ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="at" size={24} color={colors.primary} />
+                <View style={styles.infoContent}>
+                  <Text style={styles.infoLabel}>Username</Text>
+                  <Text style={styles.infoValue}>
+                    @{personalInfo.username}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
             <View style={styles.infoRow}>
               <Ionicons name="person" size={24} color={colors.primary} />
               <View style={styles.infoContent}>
@@ -779,8 +843,18 @@ export default function InfoScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="person-circle" size={80} color={colors.primary} />
+        {personalInfo.profileImage ? (
+          <Image
+            source={{ uri: personalInfo.profileImage }}
+            style={styles.headerProfileImage}
+          />
+        ) : (
+          <Ionicons name="person-circle" size={80} color={colors.primary} />
+        )}
         <Text style={styles.headerTitle}>Mes Informations</Text>
+        {personalInfo.username && (
+          <Text style={styles.headerUsername}>@{personalInfo.username}</Text>
+        )}
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={handleLogout}
@@ -867,11 +941,24 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  headerProfileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: colors.primary,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.primary,
     marginTop: 10,
+  },
+  headerUsername: {
+    fontSize: 16,
+    color: colors.primary,
+    marginTop: 5,
+    fontWeight: '600',
   },
   logoutButton: {
     flexDirection: 'row',
@@ -1086,6 +1173,98 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 15,
     paddingVertical: 10,
+  },
+  profileSection: {
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 15,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    width: '100%',
+  },
+  profileSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 5,
+  },
+  profileSectionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  profileImageDisplayContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    width: '100%',
+    position: 'relative',
+    zIndex: 1,
+  },
+  usernameContainer: {
+    width: '100%',
+    alignItems: 'center',
+    position: 'relative',
+    zIndex: 2,
+  },
+  profileImageDisplay: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: colors.primary,
+    backgroundColor: colors.cardBackground,
+  },
+  profileImagePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  usernameDisplayContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    minWidth: 200,
+    marginTop: 0,
+    width: 'auto',
+  },
+  usernameDisplayText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  usernamePlaceholderText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  usernameHintText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: 20,
   },
   infoContent: {
     flex: 1,
