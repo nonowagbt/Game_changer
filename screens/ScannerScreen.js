@@ -16,6 +16,8 @@ import { colors } from '../theme/colors';
 import { FOOD_DATABASE } from '../data/foodDatabase';
 import FoodItem from '../components/FoodItem';
 import CaloriesSummary, { calculateTotalCalories } from '../components/CaloriesSummary';
+import { recognizeFoods } from '../utils/imageRecognition';
+import { ActivityIndicator } from 'react-native';
 
 export default function ScannerScreen() {
   const [facing, setFacing] = useState('back');
@@ -26,6 +28,9 @@ export default function ScannerScreen() {
   const [estimatedCalories, setEstimatedCalories] = useState(0);
   const [customPortion, setCustomPortion] = useState({});
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
+  const [isRecognizing, setIsRecognizing] = useState(false);
+  const [detectedFoods, setDetectedFoods] = useState([]);
+  const [showManualAdd, setShowManualAdd] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -63,6 +68,11 @@ export default function ScannerScreen() {
       setShowFoodSelection(true);
       setSelectedFoods([]);
       setCustomPortion({});
+      setDetectedFoods([]);
+      setShowManualAdd(false);
+      
+      // Démarrer la reconnaissance automatique
+      await recognizeFoodsInImage(photo.uri);
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de prendre la photo');
     }
@@ -87,6 +97,11 @@ export default function ScannerScreen() {
       setShowFoodSelection(true);
       setSelectedFoods([]);
       setCustomPortion({});
+      setDetectedFoods([]);
+      setShowManualAdd(false);
+      
+      // Démarrer la reconnaissance automatique
+      await recognizeFoodsInImage(result.assets[0].uri);
     }
   };
 
@@ -138,12 +153,37 @@ export default function ScannerScreen() {
     }
   };
 
+  const recognizeFoodsInImage = async (imageUri) => {
+    setIsRecognizing(true);
+    try {
+      const detected = await recognizeFoods(imageUri);
+      setDetectedFoods(detected);
+      
+      // Ajouter automatiquement les aliments détectés
+      if (detected.length > 0) {
+        setSelectedFoods(detected);
+        // Initialiser les portions à 100g par défaut pour les aliments détectés
+        const portions = {};
+        detected.forEach((food) => {
+          portions[food] = 100;
+        });
+        setCustomPortion(portions);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la reconnaissance:', error);
+    } finally {
+      setIsRecognizing(false);
+    }
+  };
+
   const resetScanner = () => {
     setPhoto(null);
     setShowFoodSelection(false);
     setSelectedFoods([]);
     setCustomPortion({});
     setEstimatedCalories(0);
+    setDetectedFoods([]);
+    setShowManualAdd(false);
   };
 
   if (!permission) {
@@ -201,30 +241,91 @@ export default function ScannerScreen() {
         </View>
 
         <ScrollView style={styles.foodSelectionContainer}>
-          <Text style={styles.sectionTitle}>Sélectionnez les aliments visibles</Text>
-          <Text style={styles.sectionSubtitle}>
-            Estimation approximative - Ajustez les portions si nécessaire
-          </Text>
+          {isRecognizing ? (
+            <View style={styles.recognizingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.recognizingText}>Reconnaissance des aliments en cours...</Text>
+            </View>
+          ) : (
+            <>
+              {detectedFoods.length > 0 ? (
+                <>
+                  <Text style={styles.sectionTitle}>Aliments détectés</Text>
+                  <Text style={styles.sectionSubtitle}>
+                    Les aliments suivants ont été reconnus automatiquement. Ajustez les portions si nécessaire.
+                  </Text>
+                  <View style={styles.foodGrid}>
+                    {detectedFoods.map((foodName) => {
+                      const isSelected = selectedFoods.includes(foodName);
+                      const foodData = FOOD_DATABASE[foodName];
+                      const portion = customPortion[foodName] || 100;
 
-          <View style={styles.foodGrid}>
-            {Object.keys(FOOD_DATABASE).map((foodName) => {
-              const isSelected = selectedFoods.includes(foodName);
-              const foodData = FOOD_DATABASE[foodName];
-              const portion = customPortion[foodName] || 100;
+                      return (
+                        <FoodItem
+                          key={foodName}
+                          foodName={foodName}
+                          foodData={foodData}
+                          isSelected={isSelected}
+                          portion={portion}
+                          onToggle={() => toggleFood(foodName)}
+                          onPortionChange={(text) => updatePortion(foodName, text)}
+                        />
+                      );
+                    })}
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.sectionSubtitle}>
+                  Aucun aliment détecté automatiquement. Ajoutez-les manuellement ci-dessous.
+                </Text>
+              )}
 
-              return (
-                <FoodItem
-                  key={foodName}
-                  foodName={foodName}
-                  foodData={foodData}
-                  isSelected={isSelected}
-                  portion={portion}
-                  onToggle={() => toggleFood(foodName)}
-                  onPortionChange={(text) => updatePortion(foodName, text)}
-                />
-              );
-            })}
-          </View>
+              <View style={styles.manualAddSection}>
+                <View style={styles.manualAddHeader}>
+                  <Text style={styles.sectionTitle}>
+                    {detectedFoods.length > 0 ? 'Ajouter d\'autres aliments' : 'Sélectionnez les aliments visibles'}
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.toggleManualButton}
+                    onPress={() => setShowManualAdd(!showManualAdd)}
+                  >
+                    <Ionicons
+                      name={showManualAdd ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color={colors.primary}
+                    />
+                    <Text style={styles.toggleManualText}>
+                      {showManualAdd ? 'Masquer' : 'Afficher'} tous les aliments
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showManualAdd && (
+                  <View style={styles.foodGrid}>
+                    {Object.keys(FOOD_DATABASE)
+                      .filter((foodName) => !detectedFoods.includes(foodName))
+                      .map((foodName) => {
+                        const isSelected = selectedFoods.includes(foodName);
+                        const foodData = FOOD_DATABASE[foodName];
+                        const portion = customPortion[foodName] || 100;
+
+                        return (
+                          <FoodItem
+                            key={foodName}
+                            foodName={foodName}
+                            foodData={foodData}
+                            isSelected={isSelected}
+                            portion={portion}
+                            onToggle={() => toggleFood(foodName)}
+                            onPortionChange={(text) => updatePortion(foodName, text)}
+                          />
+                        );
+                      })}
+                  </View>
+                )}
+              </View>
+            </>
+          )}
 
           <CaloriesSummary
             selectedFoods={selectedFoods}
@@ -491,6 +592,37 @@ const styles = StyleSheet.create({
     color: colors.cardBackground,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  recognizingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  recognizingText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  manualAddSection: {
+    marginTop: 20,
+  },
+  manualAddHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  toggleManualButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    padding: 8,
+  },
+  toggleManualText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
