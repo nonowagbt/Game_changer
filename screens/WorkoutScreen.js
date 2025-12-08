@@ -271,15 +271,26 @@ export default function WorkoutScreen() {
     );
   };
 
-  const renderExerciseItem = ({ item, index }) => (
-    <View style={styles.exerciseItem}>
-      <View style={styles.exerciseContent}>
-        {item.imageUri && (
-          <Image
-            source={{ uri: item.imageUri }}
-            style={styles.exerciseImage}
-          />
-        )}
+  const renderExerciseItem = ({ item, index }) => {
+    const isExerciseFromDB = item.imageUri && item.imageUri.startsWith('exercise:');
+    const exerciseData = isExerciseFromDB ? item.imageUri.split(':') : null;
+    const exerciseEmoji = exerciseData ? exerciseData[2] : null;
+
+    return (
+      <View style={styles.exerciseItem}>
+        <View style={styles.exerciseContent}>
+          {item.imageUri && (
+            isExerciseFromDB ? (
+              <View style={styles.exerciseEmojiContainer}>
+                <Text style={styles.exerciseEmoji}>{exerciseEmoji}</Text>
+              </View>
+            ) : (
+              <Image
+                source={{ uri: item.imageUri }}
+                style={styles.exerciseImage}
+              />
+            )
+          )}
         <View style={styles.exerciseInfo}>
           <View style={styles.exerciseHeader}>
             <Text style={styles.exerciseName}>{item.name}</Text>
@@ -322,7 +333,8 @@ export default function WorkoutScreen() {
         </View>
       </View>
     </View>
-  );
+    );
+  };
 
   const renderWorkoutItem = ({ item }) => (
     <View style={styles.workoutCard}>
@@ -488,11 +500,15 @@ export default function WorkoutScreen() {
 
                   <ExerciseImagePicker
                     imageUri={exerciseForm.imageUri}
+                    exerciseName={exerciseForm.name}
                     onImageSelected={(uri) =>
                       setExerciseForm({ ...exerciseForm, imageUri: uri })
                     }
                     onImageRemoved={() =>
                       setExerciseForm({ ...exerciseForm, imageUri: null })
+                    }
+                    onExerciseNameSelected={(name) =>
+                      setExerciseForm({ ...exerciseForm, name })
                     }
                   />
 
@@ -785,6 +801,19 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 10,
     backgroundColor: colors.background,
+  },
+  exerciseEmojiContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: colors.primary,
+  },
+  exerciseEmoji: {
+    fontSize: 40,
   },
   exerciseInfo: {
     flex: 1,
