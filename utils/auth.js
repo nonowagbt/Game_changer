@@ -5,6 +5,7 @@ const mongoConfigured = isMongoConfigured();
 const STORAGE_KEYS = {
   CURRENT_USER: 'current_user',
   USERS: 'users',
+  LAST_EMAIL: 'last_email', // Pour mémoriser l'email même après déconnexion
 };
 
 // Fonctions MongoDB pour les utilisateurs
@@ -107,7 +108,7 @@ export const signUp = async (userData) => {
 };
 
 // Se connecter
-export const signIn = async (email, password) => {
+export const signIn = async (email, password, rememberMe = true) => {
   const user = await getUserByEmail(email);
 
   if (!user) {
@@ -118,6 +119,14 @@ export const signIn = async (email, password) => {
     throw new Error('Email ou mot de passe incorrect');
   }
 
+  // Sauvegarder l'email pour le pré-remplir même après déconnexion (seulement si "Se rappeler de moi" est coché)
+  if (rememberMe) {
+    await AsyncStorage.setItem(STORAGE_KEYS.LAST_EMAIL, email);
+  } else {
+    // Supprimer l'email mémorisé si l'utilisateur ne veut pas être rappelé
+    await AsyncStorage.removeItem(STORAGE_KEYS.LAST_EMAIL);
+  }
+  
   await setCurrentUser(user);
   return user;
 };
@@ -132,6 +141,15 @@ export const getCurrentUser = async () => {
   try {
     const userJson = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     return userJson ? JSON.parse(userJson) : null;
+  } catch (error) {
+    return null;
+  }
+};
+
+// Obtenir le dernier email utilisé (pour pré-remplir le champ)
+export const getLastEmail = async () => {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.LAST_EMAIL);
   } catch (error) {
     return null;
   }

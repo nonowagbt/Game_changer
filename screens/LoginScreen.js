@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signIn } from '../utils/auth';
+import { signIn, getLastEmail } from '../utils/auth';
 import { colors } from '../theme/colors';
 
 export default function LoginScreen({ onLogin, onSignUp }) {
@@ -19,6 +19,20 @@ export default function LoginScreen({ onLogin, onSignUp }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+
+  // Charger le dernier email utilisé au montage du composant
+  useEffect(() => {
+    loadLastEmail();
+  }, []);
+
+  const loadLastEmail = async () => {
+    const lastEmail = await getLastEmail();
+    if (lastEmail) {
+      setEmail(lastEmail);
+      setRememberMe(true); // Si un email est trouvé, activer "Se rappeler de moi"
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -28,7 +42,7 @@ export default function LoginScreen({ onLogin, onSignUp }) {
 
     setLoading(true);
     try {
-      await signIn(email, password);
+      await signIn(email, password, rememberMe);
       if (onLogin) {
         onLogin();
       }
@@ -95,6 +109,19 @@ export default function LoginScreen({ onLogin, onSignUp }) {
               </TouchableOpacity>
             </View>
           </View>
+
+          <TouchableOpacity
+            style={styles.rememberMeContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe && (
+                <Ionicons name="checkmark" size={16} color={colors.cardBackground} />
+              )}
+            </View>
+            <Text style={styles.rememberMeText}>Se rappeler de moi</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.loginButton, loading && styles.loginButtonDisabled]}
@@ -182,6 +209,31 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 15,
   },
+  rememberMeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.cardBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  rememberMeText: {
+    fontSize: 14,
+    color: colors.text,
+  },
   loginButton: {
     backgroundColor: colors.primary,
     padding: 18,
@@ -190,7 +242,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
-    marginTop: 10,
   },
   loginButtonDisabled: {
     opacity: 0.6,
