@@ -174,10 +174,18 @@ export const updateDailyProgress = async (progress) => {
   try {
     const userId = await getUserId();
     const today = new Date().toISOString().split('T')[0];
+    
+    // Récupérer les valeurs existantes pour les fusionner
+    const existing = await getDailyProgress();
+    const mergedProgress = {
+      water: progress.water !== undefined ? progress.water : existing.water || 0,
+      calories: progress.calories !== undefined ? progress.calories : existing.calories || 0,
+    };
+    
     await mongoRequest('updateOne', 'dailyProgress', { date: today }, {
       update: {
         $set: {
-          ...progress,
+          ...mergedProgress,
           userId,
           date: today,
           updatedAt: new Date().toISOString(),
