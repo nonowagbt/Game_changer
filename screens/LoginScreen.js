@@ -20,6 +20,7 @@ export default function LoginScreen({ onLogin, onSignUp }) {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
+  const [error, setError] = useState('');
 
   // Charger le dernier email utilisé au montage du composant
   useEffect(() => {
@@ -35,8 +36,11 @@ export default function LoginScreen({ onLogin, onSignUp }) {
   };
 
   const handleLogin = async () => {
+    // Réinitialiser l'erreur
+    setError('');
+    
     if (!email || !password) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      setError('Veuillez remplir tous les champs');
       return;
     }
 
@@ -47,7 +51,8 @@ export default function LoginScreen({ onLogin, onSignUp }) {
         onLogin();
       }
     } catch (error) {
-      Alert.alert('Erreur de connexion', error.message);
+      // Afficher l'erreur en rouge dans le formulaire
+      setError(error.message || 'Email ou mot de passe incorrect');
     } finally {
       setLoading(false);
     }
@@ -71,12 +76,15 @@ export default function LoginScreen({ onLogin, onSignUp }) {
         <View style={styles.form}>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, error && styles.inputContainerError]}>
+              <Ionicons name="mail-outline" size={20} color={error ? colors.error : colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setError(''); // Réinitialiser l'erreur quand l'utilisateur tape
+                }}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholder="votre@email.com"
@@ -87,12 +95,15 @@ export default function LoginScreen({ onLogin, onSignUp }) {
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Mot de passe</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.textSecondary} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, error && styles.inputContainerError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={error ? colors.error : colors.textSecondary} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setError(''); // Réinitialiser l'erreur quand l'utilisateur tape
+                }}
                 secureTextEntry={!showPassword}
                 placeholder="Votre mot de passe"
                 placeholderTextColor={colors.textTertiary}
@@ -109,6 +120,13 @@ export default function LoginScreen({ onLogin, onSignUp }) {
               </TouchableOpacity>
             </View>
           </View>
+
+          {error ? (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={20} color={colors.error} />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
           <TouchableOpacity
             style={styles.rememberMeContainer}
@@ -262,6 +280,27 @@ const styles = StyleSheet.create({
   signupLinkBold: {
     color: colors.primary,
     fontWeight: 'bold',
+  },
+  inputContainerError: {
+    borderColor: colors.error,
+    borderWidth: 2,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: `${colors.error}20`,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
