@@ -11,14 +11,20 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals } from '../utils/db';
 import { colors } from '../theme/colors';
+import { 
+  calculateCalories, 
+  calculateWater, 
+  getProgramName, 
+  getProgramDescription 
+} from '../utils/goalCalculator';
 
 export default function InfoScreen() {
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'measurements', 'goals'
   
   // Informations personnelles
-  const [personalInfo, setPersonalInfo] = useState({ email: '', name: '', phone: '' });
+  const [personalInfo, setPersonalInfo] = useState({ email: '', name: '', phone: '', age: 30, gender: 'male' });
   const [editingPersonal, setEditingPersonal] = useState(false);
-  const [personalForm, setPersonalForm] = useState({ email: '', name: '', phone: '' });
+  const [personalForm, setPersonalForm] = useState({ email: '', name: '', phone: '', age: '30', gender: 'male' });
 
   // Mensurations
   const [measurements, setMeasurements] = useState({ weight: null, height: null });
@@ -29,6 +35,9 @@ export default function InfoScreen() {
   const [goals, setGoals] = useState({ water: 2, calories: 2000 });
   const [editingGoals, setEditingGoals] = useState(false);
   const [goalsForm, setGoalsForm] = useState({ water: '', calories: '' });
+  const [selectedProgram, setSelectedProgram] = useState('maintain'); // 'maintain', 'weight_loss', 'weight_gain'
+  const [userAge, setUserAge] = useState(30);
+  const [userGender, setUserGender] = useState('male');
 
   useEffect(() => {
     loadData();
@@ -43,11 +52,15 @@ export default function InfoScreen() {
       email: userInfo.email || '',
       name: userInfo.name || '',
       phone: userInfo.phone || '',
+      age: userInfo.age || 30,
+      gender: userInfo.gender || 'male',
     });
     setPersonalForm({
       email: userInfo.email || '',
       name: userInfo.name || '',
       phone: userInfo.phone || '',
+      age: (userInfo.age || 30).toString(),
+      gender: userInfo.gender || 'male',
     });
 
     // Mensurations
@@ -66,15 +79,22 @@ export default function InfoScreen() {
       water: dailyGoals.water ? dailyGoals.water.toString() : '',
       calories: dailyGoals.calories ? dailyGoals.calories.toString() : '',
     });
+    
+    // Programme
+    setSelectedProgram(userInfo.program || 'maintain');
+    setUserAge(userInfo.age || 30);
+    setUserGender(userInfo.gender || 'male');
   };
 
   // Informations personnelles
   const handleSavePersonal = async () => {
+    const age = parseInt(personalForm.age) || 30;
     const newInfo = {
-      ...personalForm,
       email: personalForm.email.trim(),
       name: personalForm.name.trim(),
       phone: personalForm.phone.trim(),
+      age: age,
+      gender: personalForm.gender,
     };
 
     // Récupérer les autres infos existantes
@@ -85,6 +105,8 @@ export default function InfoScreen() {
     };
 
     setPersonalInfo(newInfo);
+    setUserAge(age);
+    setUserGender(personalForm.gender);
     await saveUserInfo(updatedInfo);
     setEditingPersonal(false);
     Alert.alert('Succès', 'Informations personnelles enregistrées');
@@ -123,6 +145,59 @@ export default function InfoScreen() {
     await saveUserInfo(updatedInfo);
     setEditingMeasurements(false);
     Alert.alert('Succès', 'Mensurations enregistrées');
+  };
+
+  // Calculer les objectifs selon le programme
+  const calculateGoalsFromProgram = (program) => {
+    if (!measurements.weight || !measurements.height) {
+      Alert.alert(
+        'Informations manquantes',
+        'Veuillez d\'abord renseigner votre poids et votre taille dans l\'onglet Mensurations'
+      );
+      return null;
+    }
+
+    const calculatedCalories = calculateCalories(
+      program,
+      measurements.weight,
+      measurements.height,
+      userAge,
+      userGender
+    );
+    const calculatedWater = calculateWater(program, measurements.weight);
+
+    return {
+      calories: calculatedCalories,
+      water: calculatedWater,
+    };
+  };
+
+  // Changer de programme
+  const handleProgramChange = async (program) => {
+    setSelectedProgram(program);
+    
+    // Sauvegarder le programme dans userInfo
+    const existingInfo = await getUserInfo();
+    const updatedInfo = {
+      ...existingInfo,
+      program,
+    };
+    await saveUserInfo(updatedInfo);
+
+    // Calculer et appliquer les nouveaux objectifs
+    const newGoals = calculateGoalsFromProgram(program);
+    if (newGoals) {
+      setGoals(newGoals);
+      setGoalsForm({
+        water: newGoals.water.toString(),
+        calories: newGoals.calories.toString(),
+      });
+      await saveDailyGoals(newGoals);
+      Alert.alert(
+        'Programme appliqué',
+        `Objectifs mis à jour pour "${getProgramName(program)}"`
+      );
+    }
   };
 
   // Objectifs
@@ -211,6 +286,53 @@ export default function InfoScreen() {
                 keyboardType="phone-pad"
                 placeholder="Ex: 0612345678"
               />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Âge</Text>
+              <TextInput
+                style={styles.input}
+                value={personalForm.age}
+                onChangeText={(text) =>
+                  setPersonalForm({ ...personalForm, age: text })
+                }
+                keyboardType="numeric"
+                placeholder="Ex: 30"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Genre</Text>
+              <View style={styles.genderContainer}>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    personalForm.gender === 'male' && styles.genderButtonActive,
+                  ]}
+                  onPress={() => setPersonalForm({ ...personalForm, gender: 'male' })}
+                >
+                  <Text style={[
+                    styles.genderButtonText,
+                    personalForm.gender === 'male' && styles.genderButtonTextActive,
+                  ]}>
+                    Homme
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.genderButton,
+                    personalForm.gender === 'female' && styles.genderButtonActive,
+                  ]}
+                  onPress={() => setPersonalForm({ ...personalForm, gender: 'female' })}
+                >
+                  <Text style={[
+                    styles.genderButtonText,
+                    personalForm.gender === 'female' && styles.genderButtonTextActive,
+                  ]}>
+                    Femme
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.buttonContainer}>
@@ -444,6 +566,113 @@ export default function InfoScreen() {
 
   const renderGoalsTab = () => (
     <View style={styles.tabContent}>
+      {/* Sélection du programme */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Programme</Text>
+        <Text style={styles.cardSubtitle}>
+          Choisissez votre objectif pour calculer automatiquement vos besoins
+        </Text>
+        
+        <View style={styles.programContainer}>
+          <TouchableOpacity
+            style={[
+              styles.programButton,
+              selectedProgram === 'maintain' && styles.programButtonActive,
+            ]}
+            onPress={() => handleProgramChange('maintain')}
+          >
+            <Ionicons 
+              name={selectedProgram === 'maintain' ? 'balance' : 'balance-outline'} 
+              size={24} 
+              color={selectedProgram === 'maintain' ? colors.cardBackground : colors.textSecondary} 
+            />
+            <View style={styles.programButtonContent}>
+              <Text style={[
+                styles.programButtonText,
+                selectedProgram === 'maintain' && styles.programButtonTextActive,
+              ]}>
+                Se maintenir
+              </Text>
+              <Text style={[
+                styles.programDescription,
+                selectedProgram === 'maintain' && styles.programDescriptionActive,
+              ]}>
+                Équilibre calorique
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.programButton,
+              selectedProgram === 'weight_loss' && styles.programButtonActive,
+            ]}
+            onPress={() => handleProgramChange('weight_loss')}
+          >
+            <Ionicons 
+              name={selectedProgram === 'weight_loss' ? 'trending-down' : 'trending-down-outline'} 
+              size={24} 
+              color={selectedProgram === 'weight_loss' ? colors.cardBackground : colors.textSecondary} 
+            />
+            <View style={styles.programButtonContent}>
+              <Text style={[
+                styles.programButtonText,
+                selectedProgram === 'weight_loss' && styles.programButtonTextActive,
+              ]}>
+                Perte de poids
+              </Text>
+              <Text style={[
+                styles.programDescription,
+                selectedProgram === 'weight_loss' && styles.programDescriptionActive,
+              ]}>
+                Déficit calorique
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.programButton,
+              selectedProgram === 'weight_gain' && styles.programButtonActive,
+            ]}
+            onPress={() => handleProgramChange('weight_gain')}
+          >
+            <Ionicons 
+              name={selectedProgram === 'weight_gain' ? 'trending-up' : 'trending-up-outline'} 
+              size={24} 
+              color={selectedProgram === 'weight_gain' ? colors.cardBackground : colors.textSecondary} 
+            />
+            <View style={styles.programButtonContent}>
+              <Text style={[
+                styles.programButtonText,
+                selectedProgram === 'weight_gain' && styles.programButtonTextActive,
+              ]}>
+                Prise de masse
+              </Text>
+              <Text style={[
+                styles.programDescription,
+                selectedProgram === 'weight_gain' && styles.programDescriptionActive,
+              ]}>
+                Surplus calorique
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {selectedProgram && (
+          <View style={styles.programInfo}>
+            <Text style={styles.programInfoText}>
+              {getProgramDescription(selectedProgram)}
+            </Text>
+            {(!measurements.weight || !measurements.height) && (
+              <Text style={styles.programWarning}>
+                ⚠️ Renseignez votre poids et taille pour calculer vos objectifs
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Objectifs quotidiens</Text>
 
@@ -667,7 +896,95 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
+    marginBottom: 10,
+  },
+  cardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
     marginBottom: 20,
+    lineHeight: 20,
+  },
+  programContainer: {
+    gap: 15,
+    marginBottom: 15,
+  },
+  programButton: {
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderRadius: 12,
+    padding: 15,
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  programButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  programButtonContent: {
+    flex: 1,
+  },
+  programButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  programButtonTextActive: {
+    color: colors.cardBackground,
+  },
+  programDescription: {
+    fontSize: 12,
+    color: colors.textTertiary,
+  },
+  programDescriptionActive: {
+    color: colors.cardBackground,
+    opacity: 0.9,
+  },
+  programInfo: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  programInfoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  programWarning: {
+    fontSize: 12,
+    color: colors.warning,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  genderButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  genderButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  genderButtonTextActive: {
+    color: colors.cardBackground,
   },
   form: {
     gap: 15,
@@ -812,5 +1129,30 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 14,
     color: colors.textSecondary,
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+  },
+  genderButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  genderButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  genderButtonTextActive: {
+    color: colors.cardBackground,
   },
 });
