@@ -10,6 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals } from '../utils/db';
 import { signOut } from '../utils/auth';
 import { colors } from '../theme/colors';
@@ -21,7 +22,8 @@ import {
 } from '../utils/goalCalculator';
 import ProfileImagePicker from '../components/ProfileImagePicker';
 
-export default function InfoScreen() {
+export default function InfoScreen({ refreshAuth }) {
+  const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'measurements', 'goals'
   
   // Informations personnelles
@@ -239,17 +241,54 @@ export default function InfoScreen() {
     return (measurements.weight / (heightInMeters * heightInMeters)).toFixed(1);
   };
 
-  const getBMICategory = (bmi) => {
+  const getBMICategory = (bmi, age) => {
     if (!bmi) return null;
     const bmiValue = parseFloat(bmi);
-    if (bmiValue < 18.5) return { label: 'Insuffisance pondérale', color: colors.info };
-    if (bmiValue < 25) return { label: 'Poids normal', color: colors.success };
-    if (bmiValue < 30) return { label: 'Surpoids', color: colors.warning };
+    const userAge = age || personalInfo.age || 30;
+    
+    // Seuils IMC adaptés selon l'âge
+    let thresholds;
+    
+    if (userAge < 18) {
+      // Pour les enfants et adolescents, l'IMC standard n'est pas optimal
+      // Mais on utilise des seuils légèrement ajustés pour référence
+      // Note: Les courbes de croissance spécifiques seraient plus appropriées
+      thresholds = {
+        underweight: 18.5,
+        normal: 25,
+        overweight: 30
+      };
+    } else if (userAge >= 65) {
+      // Pour les personnes âgées (65+), les seuils sont ajustés
+      // Un IMC légèrement plus élevé peut être considéré comme normal
+      thresholds = {
+        underweight: 23,  // Plus élevé que pour les adultes
+        normal: 27,       // Plus élevé que pour les adultes
+        overweight: 30    // Identique
+      };
+    } else {
+      // Adultes (18-64 ans) : seuils standards
+      thresholds = {
+        underweight: 18.5,
+        normal: 25,
+        overweight: 30
+      };
+    }
+    
+    if (bmiValue < thresholds.underweight) {
+      return { label: 'Insuffisance pondérale', color: colors.info };
+    }
+    if (bmiValue < thresholds.normal) {
+      return { label: 'Poids normal', color: colors.success };
+    }
+    if (bmiValue < thresholds.overweight) {
+      return { label: 'Surpoids', color: colors.warning };
+    }
     return { label: 'Obésité', color: colors.error };
   };
 
   const bmi = calculateBMI();
-  const bmiCategory = getBMICategory(bmi);
+  const bmiCategory = getBMICategory(bmi, personalInfo.age || userAge);
 
   const renderPersonalTab = () => (
     <View style={styles.tabContent}>
@@ -536,6 +575,16 @@ export default function InfoScreen() {
               </View>
             </View>
 
+            <View style={styles.infoRow}>
+              <Ionicons name="calendar" size={24} color={colors.primary} />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Âge</Text>
+                <Text style={styles.infoValue}>
+                  {personalInfo.age || userAge ? `${personalInfo.age || userAge} ans` : 'Non renseigné'}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={styles.editButton}
               onPress={() => setEditingMeasurements(true)}
@@ -550,6 +599,22 @@ export default function InfoScreen() {
       {bmi && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Indice de Masse Corporelle (IMC)</Text>
+          {(personalInfo.age || userAge) < 18 && (
+            <View style={styles.bmiInfoBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.info} />
+              <Text style={styles.bmiInfoText}>
+                Pour les moins de 18 ans, les courbes de croissance spécifiques sont plus appropriées que l'IMC standard.
+              </Text>
+            </View>
+          )}
+          {(personalInfo.age || userAge) >= 65 && (
+            <View style={styles.bmiInfoBox}>
+              <Ionicons name="information-circle-outline" size={16} color={colors.info} />
+              <Text style={styles.bmiInfoText}>
+                Pour les 65 ans et plus, les seuils d'IMC sont ajustés (normal : 23-27).
+              </Text>
+            </View>
+          )}
           <View style={styles.bmiContainer}>
             <Text style={styles.bmiValue}>{bmi}</Text>
             {bmiCategory && (
@@ -832,8 +897,16 @@ export default function InfoScreen() {
           text: 'Déconnexion',
           style: 'destructive',
           onPress: async () => {
-            await signOut();
-            // La navigation sera gérée par App.js qui détecte le changement
+            try {
+              await signOut();
+              // Forcer le rafraîchissement de l'authentification dans App.js
+              if (refreshAuth) {
+                refreshAuth();
+              }
+            } catch (error) {
+              console.error('Erreur lors de la déconnexion:', error);
+              Alert.alert('Erreur', 'Une erreur est survenue lors de la déconnexion');
+            }
           },
         },
       ]
@@ -843,25 +916,32 @@ export default function InfoScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        {personalInfo.profileImage ? (
-          <Image
-            source={{ uri: personalInfo.profileImage }}
-            style={styles.headerProfileImage}
-          />
-        ) : (
-          <Ionicons name="person-circle" size={80} color={colors.primary} />
-        )}
-        <Text style={styles.headerTitle}>Mes Informations</Text>
-        {personalInfo.username && (
-          <Text style={styles.headerUsername}>@{personalInfo.username}</Text>
-        )}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out-outline" size={20} color={colors.error} />
-          <Text style={styles.logoutButtonText}>Déconnexion</Text>
-        </TouchableOpacity>
+        {/* Icône de réglages en haut à droite */}
+        <View style={styles.headerTopBar}>
+          <View style={styles.headerTopBarSpacer} />
+          <Text style={styles.headerTitle}>Mes Informations</Text>
+          <TouchableOpacity
+            style={styles.settingsIconButton}
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Ionicons name="settings-outline" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Section profil */}
+        <View style={styles.headerProfileSection}>
+          {personalInfo.profileImage ? (
+            <Image
+              source={{ uri: personalInfo.profileImage }}
+              style={styles.headerProfileImage}
+            />
+          ) : (
+            <Ionicons name="person-circle" size={80} color={colors.primary} />
+          )}
+          {personalInfo.username && (
+            <Text style={styles.headerUsername}>@{personalInfo.username}</Text>
+          )}
+        </View>
       </View>
 
       {/* Onglets */}
@@ -934,12 +1014,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    padding: 30,
+    padding: 20,
     paddingTop: 50,
-    alignItems: 'center',
     backgroundColor: colors.cardBackground,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  headerTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  headerTopBarSpacer: {
+    width: 32, // Même largeur que l'icône pour centrer le titre
+  },
+  settingsIconButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '15',
+  },
+  headerProfileSection: {
+    alignItems: 'center',
   },
   headerProfileImage: {
     width: 80,
@@ -949,31 +1045,16 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 10,
+    color: colors.text,
+    flex: 1,
+    textAlign: 'center',
   },
   headerUsername: {
     fontSize: 16,
     color: colors.primary,
-    marginTop: 5,
-    fontWeight: '600',
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 15,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.error,
-  },
-  logoutButtonText: {
-    color: colors.error,
-    fontSize: 14,
+    marginTop: 10,
     fontWeight: '600',
   },
   tabsContainer: {
@@ -1333,6 +1414,23 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
     marginLeft: 5,
+  },
+  bmiInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: colors.info + '15',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.info,
+  },
+  bmiInfoText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
+    lineHeight: 18,
   },
   bmiLegend: {
     gap: 10,

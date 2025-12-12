@@ -88,6 +88,8 @@ export default function HomeScreen() {
     return Math.min(100, (currentProgress / goal) * 100);
   };
 
+  const styles = getStyles();
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
@@ -309,7 +311,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = () => StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
