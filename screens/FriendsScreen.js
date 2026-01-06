@@ -11,13 +11,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { getCurrentUser } from '../utils/auth';
+import { getCurrentUser, getUserByUsername, getUserByEmail, searchUsers } from '../utils/auth';
 
 export default function FriendsScreen() {
   const [friends, setFriends] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddFriend, setShowAddFriend] = useState(false);
-  const [friendEmail, setFriendEmail] = useState('');
+  const [friendSearch, setFriendSearch] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
     loadFriends();
@@ -29,33 +31,85 @@ export default function FriendsScreen() {
     setFriends([]);
   };
 
-  const handleAddFriend = async () => {
-    if (!friendEmail.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un email');
+  const handleSearchFriend = async () => {
+    if (!friendSearch.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un username, un email ou un nom');
       return;
     }
 
-    // Vérifier que ce n'est pas son propre email
-    const currentUser = await getCurrentUser();
-    if (currentUser && currentUser.email === friendEmail.trim()) {
-      Alert.alert('Erreur', 'Vous ne pouvez pas vous ajouter vous-même');
-      return;
+    setIsSearching(true);
+    try {
+      const currentUser = await getCurrentUser();
+      const searchTerm = friendSearch.trim();
+      
+      // Utiliser la nouvelle fonction de recherche qui permet la recherche partielle
+      const foundUsers = await searchUsers(searchTerm);
+
+      if (!foundUsers || foundUsers.length === 0) {
+        Alert.alert('Utilisateur non trouvé', 'Aucun utilisateur trouvé avec ce critère de recherche');
+        setSearchResults([]);
+        return;
+      }
+
+      // Filtrer les résultats pour exclure l'utilisateur actuel et les amis existants
+      const filteredUsers = foundUsers
+        .filter(user => {
+          // Exclure l'utilisateur actuel
+          if (currentUser && (currentUser.id === user.id || currentUser.email === user.email)) {
+            return false;
+          }
+          // Exclure les amis déjà ajoutés
+          return !friends.some(f => f.id === user.id);
+        })
+        .map(user => ({
+          id: user.id,
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
+          email: user.email,
+          username: user.username,
+        }));
+
+      if (filteredUsers.length === 0) {
+        if (foundUsers.some(u => currentUser && (currentUser.id === u.id || currentUser.email === u.email))) {
+          Alert.alert('Erreur', 'Vous ne pouvez pas vous ajouter vous-même');
+        } else {
+          Alert.alert('Information', 'Tous les utilisateurs trouvés sont déjà dans votre liste d\'amis');
+        }
+        setSearchResults([]);
+        return;
+      }
+
+      // Afficher les résultats de recherche
+      setSearchResults(filteredUsers);
+    } catch (error) {
+      console.error('Error searching for friend:', error);
+      Alert.alert('Erreur', 'Une erreur est survenue lors de la recherche');
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
     }
+  };
 
-    // TODO: Implémenter l'ajout d'ami (vérifier si l'utilisateur existe, envoyer une demande, etc.)
-    Alert.alert(
-      'Fonctionnalité à venir',
-      'L\'ajout d\'amis sera bientôt disponible. Vous pourrez rechercher et ajouter vos amis par email.',
-      [{ text: 'OK' }]
-    );
-
-    setFriendEmail('');
+  const handleAddFriend = async (user) => {
+    // TODO: Implémenter l'ajout d'ami (envoyer une demande, etc.)
+    // Pour l'instant, on ajoute directement à la liste locale
+    const newFriend = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      username: user.username,
+    };
+    
+    setFriends([...friends, newFriend]);
+    setSearchResults([]);
+    setFriendSearch('');
     setShowAddFriend(false);
+    Alert.alert('Succès', `${user.name || user.username || user.email} a été ajouté à vos amis`);
   };
 
   const filteredFriends = friends.filter((friend) =>
     friend.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    friend.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    friend.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -72,33 +126,77 @@ export default function FriendsScreen() {
 
       {showAddFriend && (
         <View style={styles.addFriendCard}>
-          <Text style={styles.addFriendTitle}>Ajouter un ami</Text>
-          <TextInput
-            style={styles.input}
-            value={friendEmail}
-            onChangeText={setFriendEmail}
-            placeholder="Email de votre ami"
-            placeholderTextColor={colors.textTertiary}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
+          <Text style={styles.addFriendTitle}>Rechercher un ami</Text>
+          <Text style={styles.addFriendSubtitle}>Recherchez par username, email, prénom ou nom</Text>
+          <View style={styles.searchInputContainer}>
+            <Ionicons name="at" size={20} color={colors.textSecondary} style={styles.searchInputIcon} />
+            <TextInput
+              style={styles.input}
+              value={friendSearch}
+              onChangeText={setFriendSearch}
+              placeholder="Username, email, prénom ou nom"
+              placeholderTextColor={colors.textTertiary}
+              autoCapitalize="none"
+              onSubmitEditing={handleSearchFriend}
+            />
+          </View>
           <View style={styles.addFriendActions}>
             <TouchableOpacity
               style={[styles.button, styles.cancelButton]}
               onPress={() => {
                 setShowAddFriend(false);
-                setFriendEmail('');
+                setFriendSearch('');
+                setSearchResults([]);
               }}
             >
               <Text style={styles.cancelButtonText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.button, styles.addButton]}
-              onPress={handleAddFriend}
+              style={[styles.button, styles.searchButton, isSearching && styles.buttonDisabled]}
+              onPress={handleSearchFriend}
+              disabled={isSearching}
             >
-              <Text style={styles.addButtonText}>Ajouter</Text>
+              {isSearching ? (
+                <Text style={styles.searchButtonText}>Recherche...</Text>
+              ) : (
+                <>
+                  <Ionicons name="search" size={18} color={colors.cardBackground} />
+                  <Text style={styles.searchButtonText}>Rechercher</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
+
+          {searchResults.length > 0 && (
+            <View style={styles.searchResultsContainer}>
+              <Text style={styles.searchResultsTitle}>
+                {searchResults.length === 1 ? 'Résultat trouvé :' : `${searchResults.length} résultats trouvés :`}
+              </Text>
+              {searchResults.map((user) => (
+                <View key={user.id} style={styles.searchResultCard}>
+                  <View style={styles.friendAvatar}>
+                    <Ionicons name="person" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.friendInfo}>
+                    <Text style={styles.friendName}>{user.name || user.email}</Text>
+                    {user.username && (
+                      <Text style={styles.friendUsername}>@{user.username}</Text>
+                    )}
+                    {user.email && user.name && (
+                      <Text style={styles.friendEmail}>{user.email}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.button, styles.addButtonSmall]}
+                    onPress={() => handleAddFriend(user)}
+                  >
+                    <Ionicons name="person-add" size={18} color={colors.cardBackground} />
+                    <Text style={styles.addButtonSmallText}>Ajouter</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       )}
 
@@ -129,7 +227,7 @@ export default function FriendsScreen() {
           </Text>
           <Text style={styles.emptySubtitle}>
             {searchQuery
-              ? 'Essayez avec un autre nom ou email'
+              ? 'Essayez avec un autre nom, username ou email'
               : 'Ajoutez vos amis pour suivre leurs progrès et partager vos entraînements'}
           </Text>
           {!searchQuery && (
@@ -153,7 +251,10 @@ export default function FriendsScreen() {
               </View>
               <View style={styles.friendInfo}>
                 <Text style={styles.friendName}>{item.name || item.email}</Text>
-                {item.name && (
+                {item.username && (
+                  <Text style={styles.friendUsername}>@{item.username}</Text>
+                )}
+                {item.name && item.email && (
                   <Text style={styles.friendEmail}>{item.email}</Text>
                 )}
               </View>
@@ -342,6 +443,79 @@ const styles = StyleSheet.create({
   },
   friendAction: {
     padding: 5,
+  },
+  addFriendSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 15,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+  },
+  searchInputIcon: {
+    marginRight: 10,
+  },
+  searchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+  },
+  searchButtonText: {
+    color: colors.cardBackground,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  searchResultsContainer: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  searchResultsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 15,
+  },
+  searchResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+  },
+  addButtonSmallText: {
+    color: colors.cardBackground,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  friendUsername: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+    marginBottom: 2,
   },
 });
 

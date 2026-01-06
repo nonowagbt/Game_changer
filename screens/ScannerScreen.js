@@ -31,6 +31,8 @@ export default function ScannerScreen() {
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [detectedFoods, setDetectedFoods] = useState([]);
   const [showManualAdd, setShowManualAdd] = useState(false);
+  const [isTakingPicture, setIsTakingPicture] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const cameraRef = useRef(null);
 
   useEffect(() => {
@@ -57,24 +59,39 @@ export default function ScannerScreen() {
   };
 
   const takePicture = async () => {
-    if (!cameraRef.current) return;
+    // Protection contre les appels multiples
+    if (isTakingPicture || !cameraRef.current || !cameraReady) {
+      return;
+    }
 
+    setIsTakingPicture(true);
+    
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
+        skipProcessing: false,
       });
-      setPhoto(photo.uri);
-      setShowFoodSelection(true);
-      setSelectedFoods([]);
-      setCustomPortion({});
-      setDetectedFoods([]);
-      setShowManualAdd(false);
       
-      // Démarrer la reconnaissance automatique
-      await recognizeFoodsInImage(photo.uri);
+      if (photo && photo.uri) {
+        setPhoto(photo.uri);
+        setShowFoodSelection(true);
+        setSelectedFoods([]);
+        setCustomPortion({});
+        setDetectedFoods([]);
+        setShowManualAdd(false);
+        
+        // Démarrer la reconnaissance automatique
+        await recognizeFoodsInImage(photo.uri);
+      }
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible de prendre la photo');
+      console.error('Erreur lors de la prise de photo:', error);
+      Alert.alert('Erreur', 'Impossible de prendre la photo. Veuillez réessayer.');
+    } finally {
+      // Réinitialiser l'état après un court délai pour permettre à la caméra de se stabiliser
+      setTimeout(() => {
+        setIsTakingPicture(false);
+      }, 500);
     }
   };
 
@@ -184,6 +201,11 @@ export default function ScannerScreen() {
     setEstimatedCalories(0);
     setDetectedFoods([]);
     setShowManualAdd(false);
+    setIsTakingPicture(false);
+    // Réinitialiser l'état de la caméra après un court délai
+    setTimeout(() => {
+      setCameraReady(true);
+    }, 300);
   };
 
   if (!permission) {
@@ -365,6 +387,14 @@ export default function ScannerScreen() {
         ref={cameraRef}
         style={styles.camera}
         facing={facing}
+        onCameraReady={() => {
+          setCameraReady(true);
+        }}
+        onMountError={(error) => {
+          console.error('Erreur de montage de la caméra:', error);
+          setCameraReady(false);
+          Alert.alert('Erreur', 'Impossible d\'initialiser la caméra. Veuillez réessayer.');
+        }}
       >
         <View style={styles.overlay}>
           <View style={styles.scanFrame} />
@@ -383,10 +413,19 @@ export default function ScannerScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.captureButton}
+            style={[
+              styles.captureButton,
+              (isTakingPicture || !cameraReady) && styles.captureButtonDisabled
+            ]}
             onPress={takePicture}
+            disabled={isTakingPicture || !cameraReady}
           >
             <View style={styles.captureButtonInner} />
+            {isTakingPicture && (
+              <View style={styles.captureButtonLoading}>
+                <ActivityIndicator size="small" color={colors.cardBackground} />
+              </View>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -518,6 +557,18 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 25,
     backgroundColor: colors.primary,
+  },
+  captureButtonDisabled: {
+    opacity: 0.5,
+  },
+  captureButtonLoading: {
+    position: 'absolute',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   imageContainer: {
     position: 'relative',

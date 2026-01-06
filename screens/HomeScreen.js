@@ -9,24 +9,40 @@ import {
   Alert,
   Modal,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { getDailyGoals, saveDailyGoals, getDailyProgress, updateDailyProgress } from '../utils/db';
+import { getDailyGoals, saveDailyGoals, getDailyProgress, updateDailyProgress, calculateStreaks, getUserInfo } from '../utils/db';
 import { colors } from '../theme/colors';
 
 export default function HomeScreen() {
   const [goals, setGoals] = useState({ water: 2, calories: 2000 });
   const [progress, setProgress] = useState({ water: 0, calories: 0 });
+  const [streaks, setStreaks] = useState({ gym: 0, eating: 0, drinking: 0 });
+  const [bmi, setBmi] = useState(null);
   const [editing, setEditing] = useState(null);
   const [tempValue, setTempValue] = useState('');
   const [manualInputModal, setManualInputModal] = useState({ visible: false, type: null, value: '' });
+  const navigation = useNavigation();
 
   const loadData = async () => {
     const savedGoals = await getDailyGoals();
     const savedProgress = await getDailyProgress();
+    const calculatedStreaks = await calculateStreaks();
+    const userInfo = await getUserInfo();
+
+    // Calculer l'IMC à partir du poids et de la taille, si disponibles
+    if (userInfo && userInfo.weight && userInfo.height) {
+      const heightInMeters = userInfo.height / 100;
+      const bmiValue = userInfo.weight / (heightInMeters * heightInMeters);
+      setBmi(bmiValue ? bmiValue.toFixed(1) : null);
+    } else {
+      setBmi(null);
+    }
+
     setGoals(savedGoals);
     setProgress(savedProgress);
+    setStreaks(calculatedStreaks);
   };
 
   // Recharger les données quand l'écran reçoit le focus
@@ -61,6 +77,9 @@ export default function HomeScreen() {
     };
     setProgress(newProgress);
     await updateDailyProgress(newProgress);
+    // Recalculer les streaks après mise à jour
+    const calculatedStreaks = await calculateStreaks();
+    setStreaks(calculatedStreaks);
   };
 
   const handleManualInput = (type) => {
@@ -79,6 +98,9 @@ export default function HomeScreen() {
     };
     setProgress(newProgress);
     await updateDailyProgress(newProgress);
+    // Recalculer les streaks après mise à jour
+    const calculatedStreaks = await calculateStreaks();
+    setStreaks(calculatedStreaks);
     setManualInputModal({ visible: false, type: null, value: '' });
   };
 
@@ -95,6 +117,65 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Objectifs Quotidiens</Text>
         <Text style={styles.headerSubtitle}>Suivez vos progrès aujourd'hui</Text>
+      </View>
+
+      {/* Raccourcis (limités à 3) */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleContainer}>
+            <Ionicons name="flash" size={24} color={colors.primary} />
+            <Text style={styles.cardTitle}>Raccourcis</Text>
+          </View>
+        </View>
+
+        <View style={styles.shortcutsContainer}>
+          {/* Raccourci Amis */}
+          <TouchableOpacity
+            style={styles.shortcutCard}
+            onPress={() => navigation.navigate('Amis')}
+          >
+            <View style={styles.shortcutIconContainer}>
+              <Ionicons name="people" size={22} color={colors.primary} />
+            </View>
+            <View style={styles.shortcutTextContainer}>
+              <Text style={styles.shortcutTitle}>Amis</Text>
+              <Text style={styles.shortcutSubtitle}>Gérer ma liste d'amis</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Raccourci IMC */}
+          <TouchableOpacity
+            style={styles.shortcutCard}
+            onPress={() => navigation.navigate('Informations')}
+          >
+            <View style={styles.shortcutIconContainer}>
+              <Ionicons name="body" size={22} color="#F97316" />
+            </View>
+            <View style={styles.shortcutTextContainer}>
+              <Text style={styles.shortcutTitle}>Mon IMC</Text>
+              <Text style={styles.shortcutSubtitle}>
+                {bmi ? `${bmi} kg/m²` : "Complétez vos mensurations"}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          {/* Raccourci Entraînement */}
+          <TouchableOpacity
+            style={styles.shortcutCard}
+            onPress={() => navigation.navigate('Entraînements')}
+          >
+            <View style={styles.shortcutIconContainer}>
+              <Ionicons name="barbell" size={22} color="#22C55E" />
+            </View>
+            <View style={styles.shortcutTextContainer}>
+              <Text style={styles.shortcutTitle}>Mon entraînement</Text>
+              <Text style={styles.shortcutSubtitle}>Accéder à mes séances</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Water Goal */}
@@ -264,6 +345,64 @@ export default function HomeScreen() {
             <Ionicons name="create" size={20} color="#EF4444" />
             <Text style={styles.actionButtonText}>Manuel</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Streaks (Récurrences) */}
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleContainer}>
+            <Ionicons name="trophy" size={24} color="#F59E0B" />
+            <Text style={styles.cardTitle}>Récurrences</Text>
+          </View>
+        </View>
+
+        <View style={styles.streaksContainer}>
+          {/* Eating Streak */}
+          <View style={styles.streakItem}>
+            <View style={styles.streakHeader}>
+              <Ionicons name="restaurant" size={20} color="#10B981" />
+              <Text style={styles.streakLabel}>Manger</Text>
+            </View>
+            <View style={styles.streakIcons}>
+              {streaks.eating > 0 ? (
+                <>
+                  {Array.from({ length: Math.min(streaks.eating, 7) }).map((_, index) => (
+                    <Ionicons key={index} name="flame" size={24} color="#EF4444" />
+                  ))}
+                  {streaks.eating > 7 && (
+                    <Text style={styles.streakCount}>+{streaks.eating - 7}</Text>
+                  )}
+                </>
+              ) : (
+                <Ionicons name="flame-outline" size={24} color={colors.textSecondary} />
+              )}
+            </View>
+            <Text style={styles.streakText}>{streaks.eating} jour{streaks.eating > 1 ? 's' : ''}</Text>
+          </View>
+
+          {/* Drinking Streak */}
+          <View style={styles.streakItem}>
+            <View style={styles.streakHeader}>
+              <Ionicons name="water" size={20} color="#3B82F6" />
+              <Text style={styles.streakLabel}>Boire</Text>
+            </View>
+            <View style={styles.streakIcons}>
+              {streaks.drinking > 0 ? (
+                <>
+                  {Array.from({ length: Math.min(streaks.drinking, 7) }).map((_, index) => (
+                    <Ionicons key={index} name="flame" size={24} color="#EF4444" />
+                  ))}
+                  {streaks.drinking > 7 && (
+                    <Text style={styles.streakCount}>+{streaks.drinking - 7}</Text>
+                  )}
+                </>
+              ) : (
+                <Ionicons name="flame-outline" size={24} color={colors.textSecondary} />
+              )}
+            </View>
+            <Text style={styles.streakText}>{streaks.drinking} jour{streaks.drinking > 1 ? 's' : ''}</Text>
+          </View>
         </View>
       </View>
 
@@ -496,6 +635,75 @@ const getStyles = () => StyleSheet.create({
     color: colors.buttonPrimaryText,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  streaksContainer: {
+    gap: 20,
+  },
+  streakItem: {
+    marginBottom: 10,
+  },
+  streakHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  streakLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  streakIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 5,
+    flexWrap: 'wrap',
+  },
+  streakCount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.textSecondary,
+  },
+  streakText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 5,
+  },
+  shortcutsContainer: {
+    gap: 10,
+  },
+  shortcutCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  shortcutIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    backgroundColor: colors.cardBackground,
+  },
+  shortcutTextContainer: {
+    flex: 1,
+  },
+  shortcutTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  shortcutSubtitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });
 

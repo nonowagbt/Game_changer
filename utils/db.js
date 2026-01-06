@@ -389,3 +389,121 @@ export const getProgressHistory = async (startDate, endDate) => {
     return [];
   }
 };
+
+// Obtenir tous les progrès quotidiens pour calculer les streaks
+export const getAllDailyProgress = async () => {
+  if (!mongoConfigured) {
+    // Fallback vers AsyncStorage
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_PROGRESS);
+      return data ? JSON.parse(data) : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  try {
+    const result = await mongoRequest('find', 'dailyProgress', {}, {
+      sort: { date: -1 },
+    });
+    const progressMap = {};
+    if (result.documents) {
+      result.documents.forEach(doc => {
+        progressMap[doc.date] = doc;
+      });
+    }
+    return progressMap;
+  } catch (error) {
+    console.error('Error getting all daily progress:', error);
+    // Fallback vers AsyncStorage
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_PROGRESS);
+      return data ? JSON.parse(data) : {};
+    } catch (error) {
+      return {};
+    }
+  }
+};
+
+// Calculer les streaks (récurrences)
+export const calculateStreaks = async () => {
+  const allProgress = await getAllDailyProgress();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Initialiser les streaks
+  let gymStreak = 0;
+  let eatingStreak = 0;
+  let drinkingStreak = 0;
+  
+  // Obtenir les objectifs pour vérifier si les objectifs sont atteints
+  const goals = await getDailyGoals();
+  
+  // Obtenir les workouts pour vérifier la présence de séances
+  const workouts = await getWorkouts();
+  
+  // Parcourir les jours en arrière depuis aujourd'hui
+  for (let i = 0; i < 365; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(checkDate.getDate() - i);
+    const dateKey = checkDate.toISOString().split('T')[0];
+    const dateKeyString = checkDate.toDateString();
+    
+    // Vérifier dans les deux formats (ISO et DateString)
+    const progress = allProgress[dateKey] || allProgress[dateKeyString];
+    
+    // Vérifier le streak de gym (salle)
+    if (i === 0 || gymStreak > 0) {
+      // Vérifier s'il y a un workout ce jour-là
+      // Les workouts peuvent avoir date, createdAt, ou updatedAt
+      const hasWorkout = workouts.some(workout => {
+        const workoutDateStr = workout.date || workout.createdAt || workout.updatedAt;
+        if (!workoutDateStr) return false;
+        const workoutDate = new Date(workoutDateStr);
+        workoutDate.setHours(0, 0, 0, 0);
+        return workoutDate.getTime() === checkDate.getTime();
+      });
+      
+      if (hasWorkout) {
+        gymStreak++;
+      } else if (i > 0) {
+        // Si pas de workout et que ce n'est pas aujourd'hui, arrêter le streak
+        break;
+      }
+      // Si i === 0 (aujourd'hui) et pas de workout, on ne fait rien
+      // Le streak reste à 0 ou continue selon les jours précédents
+    }
+    
+    // Vérifier le streak de manger (calories)
+    if (i === 0 || eatingStreak > 0) {
+      if (progress && progress.calories >= goals.calories * 0.8) {
+        // Atteint au moins 80% de l'objectif
+        eatingStreak++;
+      } else if (i > 0) {
+        // Si objectif pas atteint et que ce n'est pas aujourd'hui, arrêter le streak
+        break;
+      }
+      // Si i === 0 (aujourd'hui) et objectif pas atteint, on ne fait rien
+      // Le streak reste à 0 ou continue selon les jours précédents
+    }
+    
+    // Vérifier le streak de boire (eau)
+    if (i === 0 || drinkingStreak > 0) {
+      if (progress && progress.water >= goals.water * 0.8) {
+        // Atteint au moins 80% de l'objectif
+        drinkingStreak++;
+      } else if (i > 0) {
+        // Si objectif pas atteint et que ce n'est pas aujourd'hui, arrêter le streak
+        break;
+      }
+      // Si i === 0 (aujourd'hui) et objectif pas atteint, on ne fait rien
+      // Le streak reste à 0 ou continue selon les jours précédents
+    }
+  }
+  
+  return {
+    gym: gymStreak,
+    eating: eatingStreak,
+    drinking: drinkingStreak,
+  };
+};

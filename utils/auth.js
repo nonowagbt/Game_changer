@@ -116,22 +116,111 @@ export const signUp = async (userData) => {
   return user;
 };
 
-// Se connecter
-export const signIn = async (email, password, rememberMe = true) => {
-  const user = await getUserByEmail(email);
+// Normaliser un numéro de téléphone pour la comparaison
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  // Supprimer tous les caractères non numériques sauf le + au début
+  let normalized = phone.trim();
+  // Garder le + s'il est au début, sinon le supprimer
+  const hasPlus = normalized.startsWith('+');
+  normalized = normalized.replace(/[^\d]/g, '');
+  return hasPlus ? '+' + normalized : normalized;
+};
+
+// Obtenir un utilisateur par numéro de téléphone
+export const getUserByPhone = async (phone) => {
+  if (!phone) return null;
+  
+  // Normaliser le numéro de téléphone pour la comparaison
+  const normalizedPhone = normalizePhone(phone);
+  const phoneWithoutPlus = normalizedPhone.replace(/^\+/, '');
+  
+  if (mongoConfigured) {
+    try {
+      // Chercher avec différentes variantes du numéro
+      const result = await mongoRequest('findOne', 'users', {
+        $or: [
+          { phone: phone },
+          { phone: normalizedPhone },
+          { phone: phoneWithoutPlus }
+        ]
+      });
+      return result.document || null;
+    } catch (error) {
+      console.error('Error getting user by phone from MongoDB:', error);
+      // Fallback vers AsyncStorage
+      const users = await getUsers();
+      return users.find(u => {
+        if (!u.phone) return false;
+        const userPhoneNormalized = normalizePhone(u.phone);
+        const userPhoneWithoutPlus = userPhoneNormalized.replace(/^\+/, '');
+        return userPhoneNormalized === normalizedPhone || 
+               userPhoneWithoutPlus === phoneWithoutPlus ||
+               u.phone === phone;
+      }) || null;
+    }
+  } else {
+    const users = await getUsers();
+    return users.find(u => {
+      if (!u.phone) return false;
+      const userPhoneNormalized = normalizePhone(u.phone);
+      const userPhoneWithoutPlus = userPhoneNormalized.replace(/^\+/, '');
+      return userPhoneNormalized === normalizedPhone || 
+             userPhoneWithoutPlus === phoneWithoutPlus ||
+             u.phone === phone;
+    }) || null;
+  }
+};
+
+// Se connecter avec email, username ou numéro de téléphone
+export const signIn = async (identifier, password, rememberMe = true) => {
+  if (!identifier || !password) {
+    throw new Error('Veuillez remplir tous les champs');
+  }
+
+  const identifierTrimmed = identifier.trim();
+  let user = null;
+
+  // Stratégie de recherche intelligente : essayer toutes les méthodes possibles
+  // pour trouver l'utilisateur, car un username peut contenir des chiffres
+  // et un numéro de téléphone peut être stocké de différentes façons
+  
+  // 1. Si contient @, c'est définitivement un email
+  if (identifierTrimmed.includes('@')) {
+    user = await getUserByEmail(identifierTrimmed);
+  } else {
+    // 2. Essayer d'abord par username (priorité car les usernames peuvent contenir des chiffres)
+    user = await getUserByUsername(identifierTrimmed);
+    
+    // 3. Si pas trouvé par username, essayer par téléphone
+    // (uniquement si l'identifiant ressemble vraiment à un numéro de téléphone)
+    if (!user) {
+      const cleaned = identifierTrimmed.replace(/[\s\-\+\(\)]/g, '');
+      // Un numéro de téléphone doit avoir au moins 8 chiffres et être principalement numérique
+      if (/^[\d\s\-\+\(\)]+$/.test(identifierTrimmed) && cleaned.length >= 8 && /^\d+$/.test(cleaned)) {
+        user = await getUserByPhone(identifierTrimmed);
+      }
+    }
+    
+    // 4. Si toujours pas trouvé et que ça ressemble à un email sans @, essayer quand même
+    // (cas rare mais possible)
+    if (!user && identifierTrimmed.includes('.')) {
+      user = await getUserByEmail(identifierTrimmed);
+    }
+  }
 
   if (!user) {
-    throw new Error('Email ou mot de passe incorrect');
+    throw new Error('Identifiant ou mot de passe incorrect');
   }
 
   if (user.password !== password) {
-    throw new Error('Email ou mot de passe incorrect');
+    throw new Error('Identifiant ou mot de passe incorrect');
   }
 
-  // Sauvegarder l'email pour le pré-remplir même après déconnexion (seulement si "Se rappeler de moi" est coché)
-  if (rememberMe) {
-    await AsyncStorage.setItem(STORAGE_KEYS.LAST_EMAIL, email);
-  } else {
+  // Sauvegarder l'identifiant pour le pré-remplir (seulement si c'est un email et "Se rappeler de moi" est coché)
+  if (rememberMe && identifierTrimmed.includes('@')) {
+    await AsyncStorage.setItem(STORAGE_KEYS.LAST_EMAIL, identifierTrimmed);
+  } else if (!rememberMe) {
     // Supprimer l'email mémorisé si l'utilisateur ne veut pas être rappelé
     await AsyncStorage.removeItem(STORAGE_KEYS.LAST_EMAIL);
   }
@@ -172,40 +261,54 @@ const setCurrentUser = async (user) => {
 };
 
 // Obtenir un utilisateur par email
-const getUserByEmail = async (email) => {
+export const getUserByEmail = async (email) => {
+  if (!email) return null;
+  
+  const emailLower = email.toLowerCase().trim();
+  
   if (mongoConfigured) {
     try {
-      const result = await mongoRequest('findOne', 'users', { email });
+      // Recherche insensible à la casse avec regex
+      const escapedEmail = emailLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const result = await mongoRequest('findOne', 'users', { 
+        email: { $regex: `^${escapedEmail}$`, $options: 'i' }
+      });
       return result.document || null;
     } catch (error) {
       console.error('Error getting user from MongoDB:', error);
       // Fallback vers AsyncStorage
       const users = await getUsers();
-      return users.find(u => u.email === email) || null;
+      return users.find(u => u.email && u.email.toLowerCase() === emailLower) || null;
     }
   } else {
     const users = await getUsers();
-    return users.find(u => u.email === email) || null;
+    return users.find(u => u.email && u.email.toLowerCase() === emailLower) || null;
   }
 };
 
 // Obtenir un utilisateur par username
-const getUserByUsername = async (username) => {
+export const getUserByUsername = async (username) => {
   if (!username) return null;
+  
+  const usernameLower = username.toLowerCase().trim();
   
   if (mongoConfigured) {
     try {
-      const result = await mongoRequest('findOne', 'users', { username });
+      // Recherche insensible à la casse avec regex
+      const escapedUsername = usernameLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const result = await mongoRequest('findOne', 'users', { 
+        username: { $regex: `^${escapedUsername}$`, $options: 'i' }
+      });
       return result.document || null;
     } catch (error) {
       console.error('Error getting user by username from MongoDB:', error);
       // Fallback vers AsyncStorage
       const users = await getUsers();
-      return users.find(u => u.username === username) || null;
+      return users.find(u => u.username && u.username.toLowerCase() === usernameLower) || null;
     }
   } else {
     const users = await getUsers();
-    return users.find(u => u.username === username) || null;
+    return users.find(u => u.username && u.username.toLowerCase() === usernameLower) || null;
   }
 };
 
@@ -217,6 +320,61 @@ const getUsers = async () => {
   } catch (error) {
     return [];
   }
+};
+
+// Rechercher des utilisateurs (pour la recherche d'amis)
+export const searchUsers = async (searchTerm) => {
+  if (!searchTerm || searchTerm.trim().length === 0) {
+    return [];
+  }
+
+  const term = searchTerm.trim().toLowerCase();
+  const isEmail = term.includes('@');
+
+  if (mongoConfigured) {
+    try {
+      // Recherche insensible à la casse avec regex
+      const filter = isEmail
+        ? { email: { $regex: term, $options: 'i' } }
+        : {
+            $or: [
+              { username: { $regex: term, $options: 'i' } },
+              { firstName: { $regex: term, $options: 'i' } },
+              { lastName: { $regex: term, $options: 'i' } },
+              { email: { $regex: term, $options: 'i' } },
+            ],
+          };
+
+      const result = await mongoRequest('find', 'users', filter, {
+        limit: 20, // Limiter à 20 résultats
+      });
+      return result.documents || [];
+    } catch (error) {
+      console.error('Error searching users from MongoDB:', error);
+      // Fallback vers AsyncStorage
+      const users = await getUsers();
+      return filterUsers(users, term, isEmail);
+    }
+  } else {
+    const users = await getUsers();
+    return filterUsers(users, term, isEmail);
+  }
+};
+
+// Filtrer les utilisateurs localement
+const filterUsers = (users, term, isEmail) => {
+  return users.filter((user) => {
+    if (isEmail) {
+      return user.email && user.email.toLowerCase().includes(term);
+    } else {
+      return (
+        (user.username && user.username.toLowerCase().includes(term)) ||
+        (user.firstName && user.firstName.toLowerCase().includes(term)) ||
+        (user.lastName && user.lastName.toLowerCase().includes(term)) ||
+        (user.email && user.email.toLowerCase().includes(term))
+      );
+    }
+  }).slice(0, 20); // Limiter à 20 résultats
 };
 
 // Sauvegarder les informations utilisateur après la création de compte

@@ -271,6 +271,70 @@ export default function WorkoutScreen() {
     );
   };
 
+  // Calculer le temps total estimé d'un entraînement (en secondes)
+  const calculateWorkoutTime = (workoutExercises) => {
+    if (!workoutExercises || workoutExercises.length === 0) {
+      return 0;
+    }
+
+    let totalSeconds = 0;
+    const TIME_PER_REP = 3; // 3 secondes par répétition
+    const TRANSITION_TIME = 15; // 15 secondes de transition entre exercices
+
+    workoutExercises.forEach((exercise, exerciseIndex) => {
+      if (exercise.series && exercise.series.length > 0) {
+        exercise.series.forEach((serie, serieIndex) => {
+          const reps = parseInt(serie.reps) || 0;
+          const restTime = parseInt(serie.restTime) || 0;
+          
+          // Temps d'exécution de la série (répétitions × 3 secondes)
+          totalSeconds += reps * TIME_PER_REP;
+          
+          // Temps de repos après la série (sauf pour la dernière série de l'exercice)
+          if (serieIndex < exercise.series.length - 1) {
+            totalSeconds += restTime;
+          }
+        });
+      }
+      
+      // Temps de transition entre exercices (sauf pour le dernier exercice)
+      if (exerciseIndex < workoutExercises.length - 1) {
+        totalSeconds += TRANSITION_TIME;
+      }
+    });
+
+    return totalSeconds;
+  };
+
+  // Formater le temps en heures/minutes ou minutes/secondes
+  const formatTime = (seconds) => {
+    if (seconds === 0) return '0 min';
+    
+    const totalMinutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    
+    // Si plus d'une heure, afficher en heures et minutes
+    if (totalMinutes >= 60) {
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      
+      if (minutes === 0) {
+        return `${hours}h`;
+      } else {
+        return `${hours}h ${minutes}min`;
+      }
+    } else {
+      // Sinon, afficher en minutes et secondes
+      if (totalMinutes === 0) {
+        return `${remainingSeconds}s`;
+      } else if (remainingSeconds === 0) {
+        return `${totalMinutes}min`;
+      } else {
+        return `${totalMinutes}min ${remainingSeconds}s`;
+      }
+    }
+  };
+
   const renderExerciseItem = ({ item, index }) => {
     const isExerciseFromDB = item.imageUri && item.imageUri.startsWith('exercise:');
     const exerciseData = isExerciseFromDB ? item.imageUri.split(':') : null;
@@ -336,45 +400,52 @@ export default function WorkoutScreen() {
     );
   };
 
-  const renderWorkoutItem = ({ item }) => (
-    <View style={styles.workoutCard}>
-      <View style={styles.workoutHeader}>
-        <View style={styles.workoutTitleContainer}>
-          <Text style={styles.workoutName}>{item.name}</Text>
-          <Text style={styles.exerciseCount}>
-            {item.exercises?.length || 0} exercice{(item.exercises?.length || 0) > 1 ? 's' : ''}
-          </Text>
+  const renderWorkoutItem = ({ item }) => {
+    const estimatedTime = calculateWorkoutTime(item.exercises);
+    
+    return (
+      <View style={styles.workoutCard}>
+        <View style={styles.workoutHeader}>
+          <View style={styles.workoutTitleContainer}>
+            <Text style={styles.workoutName}>{item.name}</Text>
+            <Text style={styles.exerciseCount}>
+              {item.exercises?.length || 0} exercice{(item.exercises?.length || 0) > 1 ? 's' : ''}
+              {estimatedTime > 0 && (
+                <Text style={styles.exerciseCountSeparator}> • {formatTime(estimatedTime)}</Text>
+              )}
+            </Text>
+          </View>
+          <View style={styles.workoutActions}>
+            <TouchableOpacity
+              onPress={() => handleOpenWorkoutModal(item)}
+              style={styles.iconButton}
+            >
+              <Ionicons name="create-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => handleDeleteWorkout(item.id)}
+              style={styles.iconButton}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.error} />
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.workoutActions}>
-          <TouchableOpacity
-            onPress={() => handleOpenWorkoutModal(item)}
-            style={styles.iconButton}
-          >
-            <Ionicons name="create-outline" size={20} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handleDeleteWorkout(item.id)}
-            style={styles.iconButton}
-          >
-            <Ionicons name="trash-outline" size={20} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      {item.exercises && item.exercises.length > 0 && (
-        <View style={styles.exercisesList}>
-          {item.exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exercisePreview}>
-              <Text style={styles.exercisePreviewName}>{exercise.name}</Text>
-              <Text style={styles.exercisePreviewDetails}>
-                {exercise.series.length} série{exercise.series.length > 1 ? 's' : ''}
-              </Text>
-            </View>
-          ))}
-        </View>
-      )}
-    </View>
-  );
+        {item.exercises && item.exercises.length > 0 && (
+          <View style={styles.exercisesList}>
+            {item.exercises.map((exercise) => (
+              <View key={exercise.id} style={styles.exercisePreview}>
+                <Text style={styles.exercisePreviewName}>{exercise.name}</Text>
+                <Text style={styles.exercisePreviewDetails}>
+                  {exercise.series.length} série{exercise.series.length > 1 ? 's' : ''}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -450,6 +521,21 @@ export default function WorkoutScreen() {
                   placeholder="Ex: Entraînement Jambes"
                 />
               </View>
+
+              {/* Affichage du temps estimé */}
+              {exercises.length > 0 && (
+                <View style={styles.estimatedTimeContainer}>
+                  <View style={styles.estimatedTimeBadge}>
+                    <Ionicons name="time" size={20} color={colors.primary} />
+                    <View style={styles.estimatedTimeTextContainer}>
+                      <Text style={styles.estimatedTimeLabel}>Temps estimé</Text>
+                      <Text style={styles.estimatedTimeValue}>
+                        {formatTime(calculateWorkoutTime(exercises))}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
 
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Exercices</Text>
@@ -1084,5 +1170,38 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 10,
+  },
+  exerciseCountSeparator: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  estimatedTimeContainer: {
+    marginBottom: 20,
+  },
+  estimatedTimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.backgroundSecondary,
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  estimatedTimeTextContainer: {
+    flex: 1,
+  },
+  estimatedTimeLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  estimatedTimeValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.primary,
   },
 });
