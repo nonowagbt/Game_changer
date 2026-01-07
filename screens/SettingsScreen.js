@@ -9,22 +9,250 @@ import {
   Alert,
   Share,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
-import { signOut, getCurrentUser } from '../utils/auth';
+import { signOut, getCurrentUser, changePassword, getNextPasswordChangeDate } from '../utils/auth';
 import { getUserInfo, getWorkouts, getDailyGoals, getDailyProgress } from '../utils/db';
 
 const SETTINGS_STORAGE_KEY = 'app_settings';
 
 export default function SettingsScreen({ refreshAuth }) {
   const navigation = useNavigation();
+  
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 15,
+      paddingTop: 50,
+      paddingBottom: 15,
+      backgroundColor: colors.cardBackground,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    backButton: {
+      padding: 5,
+    },
+    headerTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      flex: 1,
+      textAlign: 'center',
+    },
+    searchButton: {
+      width: 34,
+    },
+    scrollView: {
+      flex: 1,
+    },
+    section: {
+      paddingVertical: 10,
+    },
+    sectionTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textTertiary,
+      textTransform: 'uppercase',
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      letterSpacing: 0.5,
+    },
+    settingItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingVertical: 15,
+      backgroundColor: colors.cardBackground,
+    },
+    settingItemLeft: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flex: 1,
+    },
+    settingIcon: {
+      marginRight: 15,
+      width: 24,
+    },
+    settingTextContainer: {
+      flex: 1,
+    },
+    settingTitle: {
+      fontSize: 16,
+      color: colors.text,
+      fontWeight: '400',
+    },
+    settingSubtitle: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 18,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.border,
+      marginVertical: 0,
+    },
+    logoutSection: {
+      paddingTop: 20,
+      paddingBottom: 10,
+    },
+    logoutButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 15,
+      marginHorizontal: 20,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.error + '40',
+      backgroundColor: colors.error + '10',
+    },
+    logoutButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.error,
+      marginLeft: 8,
+    },
+    bottomSpacing: {
+      height: 30,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.cardBackground,
+      borderRadius: 20,
+      width: '90%',
+      maxWidth: 500,
+      maxHeight: '80%',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    modalCloseButton: {
+      padding: 5,
+    },
+    modalScrollView: {
+      padding: 20,
+    },
+    warningBox: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      backgroundColor: colors.warning + '20',
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 20,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.warning,
+      gap: 10,
+    },
+    warningText: {
+      flex: 1,
+      fontSize: 14,
+      color: colors.text,
+      lineHeight: 20,
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      flex: 1,
+      padding: 15,
+      fontSize: 16,
+      color: colors.inputText,
+    },
+    passwordContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.inputBorder,
+      borderRadius: 10,
+      backgroundColor: colors.inputBackground,
+      paddingRight: 10,
+    },
+    eyeIcon: {
+      padding: 5,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 10,
+    },
+    modalButton: {
+      flex: 1,
+      padding: 15,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    cancelModalButton: {
+      backgroundColor: colors.buttonSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelModalButtonText: {
+      color: colors.buttonSecondaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    saveModalButton: {
+      backgroundColor: colors.primary,
+    },
+    saveModalButtonDisabled: {
+      opacity: 0.5,
+    },
+    saveModalButtonText: {
+      color: colors.cardBackground,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+  });
+  
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationsWorkouts, setNotificationsWorkouts] = useState(true);
   const [notificationsGoals, setNotificationsGoals] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [nextPasswordChangeDate, setNextPasswordChangeDate] = useState(null);
 
   useEffect(() => {
     loadSettings();
@@ -154,7 +382,58 @@ export default function SettingsScreen({ refreshAuth }) {
   };
 
   const handlePassword = () => {
-    Alert.alert('Mot de passe', 'Fonctionnalité de modification du mot de passe à venir...');
+    console.log('Opening password change modal');
+    setPasswordModalVisible(true);
+    setOldPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas');
+      return;
+    }
+
+    if (oldPassword === newPassword) {
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit être différent de l\'ancien');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      await changePassword(oldPassword, newPassword);
+      Alert.alert(
+        'Succès',
+        'Votre mot de passe a été modifié avec succès',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              setPasswordModalVisible(false);
+              setOldPassword('');
+              setNewPassword('');
+              setConfirmPassword('');
+              loadNextPasswordChangeDate();
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Erreur', error.message || 'Impossible de changer le mot de passe');
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   const handleAppearance = () => {
@@ -283,7 +562,14 @@ export default function SettingsScreen({ refreshAuth }) {
         {/* Section Raccourcis */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Raccourcis</Text>
-          {renderSettingItem('lock-closed-outline', 'Mot de passe', null, handlePassword)}
+          {renderSettingItem(
+            'lock-closed-outline',
+            'Mot de passe',
+            nextPasswordChangeDate
+              ? `Prochain changement possible le ${nextPasswordChangeDate.toLocaleDateString('fr-FR')}`
+              : null,
+            handlePassword
+          )}
           {renderSwitchItem(
             'notifications-outline',
             'Notifications',
@@ -397,112 +683,150 @@ export default function SettingsScreen({ refreshAuth }) {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Modal de changement de mot de passe */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={passwordModalVisible}
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Changer le mot de passe</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setPasswordModalVisible(false);
+                  setOldPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                }}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScrollView}>
+              {nextPasswordChangeDate && new Date() < nextPasswordChangeDate && (
+                <View style={styles.warningBox}>
+                  <Ionicons name="information-circle" size={20} color={colors.warning} />
+                  <Text style={styles.warningText}>
+                    Vous ne pouvez changer votre mot de passe que tous les 3 mois.{'\n'}
+                    Prochain changement possible le {nextPasswordChangeDate.toLocaleDateString('fr-FR')}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Ancien mot de passe</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.input}
+                    value={oldPassword}
+                    onChangeText={setOldPassword}
+                    secureTextEntry={!showOldPassword}
+                    placeholder="Entrez votre ancien mot de passe"
+                    placeholderTextColor={colors.textTertiary}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowOldPassword(!showOldPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={showOldPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nouveau mot de passe</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.input}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry={!showNewPassword}
+                    placeholder="Minimum 6 caractères"
+                    placeholderTextColor={colors.textTertiary}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowNewPassword(!showNewPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirmer le nouveau mot de passe</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.input}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirmPassword}
+                    placeholder="Répétez le nouveau mot de passe"
+                    placeholderTextColor={colors.textTertiary}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={20}
+                      color={colors.textSecondary}
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelModalButton]}
+                  onPress={() => {
+                    setPasswordModalVisible(false);
+                    setOldPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  disabled={isChangingPassword}
+                >
+                  <Text style={styles.cancelModalButtonText}>Annuler</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.modalButton,
+                    styles.saveModalButton,
+                    isChangingPassword && styles.saveModalButtonDisabled,
+                  ]}
+                  onPress={handleChangePassword}
+                  disabled={isChangingPassword}
+                >
+                  {isChangingPassword ? (
+                    <Text style={styles.saveModalButtonText}>Changement...</Text>
+                  ) : (
+                    <Text style={styles.saveModalButtonText}>Changer</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingTop: 50,
-    paddingBottom: 15,
-    backgroundColor: colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    padding: 5,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    flex: 1,
-    textAlign: 'center',
-  },
-  searchButton: {
-    width: 34,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    paddingVertical: 10,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textTertiary,
-    textTransform: 'uppercase',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    letterSpacing: 0.5,
-  },
-  settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: colors.cardBackground,
-  },
-  settingItemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  settingIcon: {
-    marginRight: 15,
-    width: 24,
-  },
-  settingTextContainer: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: '400',
-  },
-  settingSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginTop: 4,
-    lineHeight: 18,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: 0,
-  },
-  logoutSection: {
-    paddingTop: 20,
-    paddingBottom: 10,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    marginHorizontal: 20,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.error + '40',
-    backgroundColor: colors.error + '10',
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.error,
-    marginLeft: 8,
-  },
-  bottomSpacing: {
-    height: 30,
-  },
-});

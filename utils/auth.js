@@ -87,6 +87,7 @@ export const signUp = async (userData) => {
     age: age ? parseInt(age) : 30,
     gender: gender || 'male',
     createdAt: new Date().toISOString(),
+    lastPasswordChange: new Date().toISOString(), // Initialiser avec la date de création
   };
 
   if (mongoConfigured) {
@@ -395,5 +396,126 @@ const saveUserInfoFromSignup = async (user) => {
   };
 
   await saveUserInfo(userInfo);
+};
+
+// Changer le mot de passe
+export const changePassword = async (oldPassword, newPassword) => {
+  if (!oldPassword || !newPassword) {
+    throw new Error('Veuillez remplir tous les champs');
+  }
+
+  if (newPassword.length < 6) {
+    throw new Error('Le nouveau mot de passe doit contenir au moins 6 caractères');
+  }
+
+  // Récupérer l'utilisateur actuel
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    throw new Error('Utilisateur non connecté');
+  }
+
+  // Récupérer l'utilisateur complet avec le mot de passe
+  let user = null;
+  if (currentUser.email) {
+    user = await getUserByEmail(currentUser.email);
+  }
+
+  if (!user) {
+    throw new Error('Utilisateur non trouvé');
+  }
+
+  // Vérifier l'ancien mot de passe
+  if (user.password !== oldPassword) {
+    throw new Error('Ancien mot de passe incorrect');
+  }
+
+  // Vérifier que 3 mois se sont écoulés depuis le dernier changement
+  const lastPasswordChange = user.lastPasswordChange || user.createdAt;
+  const lastChangeDate = new Date(lastPasswordChange);
+  const now = new Date();
+  const monthsSinceLastChange = (now - lastChangeDate) / (1000 * 60 * 60 * 24 * 30); // Approximation de 30 jours par mois
+
+  if (monthsSinceLastChange < 3) {
+    const monthsRemaining = Math.ceil(3 - monthsSinceLastChange);
+    const nextChangeDate = new Date(lastChangeDate);
+    nextChangeDate.setMonth(nextChangeDate.getMonth() + 3);
+    
+    throw new Error(
+      `Vous ne pouvez changer votre mot de passe que tous les 3 mois. ` +
+      `Prochain changement possible dans ${monthsRemaining} mois (${nextChangeDate.toLocaleDateString('fr-FR')}).`
+    );
+  }
+
+  // Mettre à jour le mot de passe
+  const updatedUser = {
+    ...user,
+    password: newPassword,
+    lastPasswordChange: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+
+  if (mongoConfigured) {
+    try {
+      await mongoRequest('updateOne', 'users', { id: user.id }, {
+        update: {
+          $set: {
+            password: newPassword,
+            lastPasswordChange: now.toISOString(),
+            updatedAt: now.toISOString(),
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Error updating password in MongoDB:', error);
+      // Fallback vers AsyncStorage
+      const users = await getUsers();
+      const userIndex = users.findIndex(u => u.id === user.id);
+      if (userIndex >= 0) {
+        users[userIndex] = updatedUser;
+        await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      } else {
+        throw new Error('Utilisateur non trouvé dans la base de données');
+      }
+    }
+  } else {
+    // AsyncStorage
+    const users = await getUsers();
+    const userIndex = users.findIndex(u => u.id === user.id);
+    if (userIndex >= 0) {
+      users[userIndex] = updatedUser;
+      await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    } else {
+      throw new Error('Utilisateur non trouvé dans la base de données');
+    }
+  }
+
+  // Mettre à jour l'utilisateur actuel (sans le mot de passe)
+  await setCurrentUser(updatedUser);
+
+  return true;
+};
+
+// Obtenir la date du prochain changement de mot de passe possible
+export const getNextPasswordChangeDate = async () => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) {
+    return null;
+  }
+
+  let user = null;
+  if (currentUser.email) {
+    user = await getUserByEmail(currentUser.email);
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const lastPasswordChange = user.lastPasswordChange || user.createdAt;
+  const lastChangeDate = new Date(lastPasswordChange);
+  const nextChangeDate = new Date(lastChangeDate);
+  nextChangeDate.setMonth(nextChangeDate.getMonth() + 3);
+
+  return nextChangeDate;
 };
 
