@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals } from '../utils/db';
+import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals, getWeeklyGoal, saveWeeklyGoal, getWeekStart } from '../utils/db';
 import { signOut } from '../utils/auth';
 import { colors } from '../theme/colors';
 import { 
@@ -39,7 +39,8 @@ export default function InfoScreen({ refreshAuth }) {
   // Objectifs
   const [goals, setGoals] = useState({ water: 2, calories: 2000 });
   const [editingGoals, setEditingGoals] = useState(false);
-  const [goalsForm, setGoalsForm] = useState({ water: '', calories: '' });
+  const [goalsForm, setGoalsForm] = useState({ water: '', calories: '', weeklyGym: '' });
+  const [weeklyGymGoal, setWeeklyGymGoal] = useState(null);
   const [selectedProgram, setSelectedProgram] = useState('maintain'); // 'maintain', 'weight_loss', 'weight_gain'
   const [userAge, setUserAge] = useState(30);
   const [userGender, setUserGender] = useState('male');
@@ -84,9 +85,16 @@ export default function InfoScreen({ refreshAuth }) {
 
     // Objectifs
     setGoals(dailyGoals);
+    
+    // Charger l'objectif hebdomadaire de la salle
+    const currentWeekStart = getWeekStart();
+    const savedWeeklyGoal = await getWeeklyGoal();
+    setWeeklyGymGoal(savedWeeklyGoal);
+    
     setGoalsForm({
       water: dailyGoals.water ? dailyGoals.water.toString() : '',
       calories: dailyGoals.calories ? dailyGoals.calories.toString() : '',
+      weeklyGym: savedWeeklyGoal?.goal ? savedWeeklyGoal.goal.toString() : '',
     });
     
     // Programme
@@ -215,6 +223,7 @@ export default function InfoScreen({ refreshAuth }) {
   const handleSaveGoals = async () => {
     const water = parseFloat(goalsForm.water);
     const calories = parseFloat(goalsForm.calories);
+    const weeklyGym = goalsForm.weeklyGym ? parseInt(goalsForm.weeklyGym) : null;
 
     if (isNaN(water) || water <= 0) {
       Alert.alert('Erreur', 'Veuillez entrer un objectif d\'eau valide');
@@ -226,9 +235,22 @@ export default function InfoScreen({ refreshAuth }) {
       return;
     }
 
+    if (weeklyGym !== null && (isNaN(weeklyGym) || weeklyGym <= 0)) {
+      Alert.alert('Erreur', 'Veuillez entrer un objectif hebdomadaire de salle valide');
+      return;
+    }
+
     const newGoals = { water, calories };
     setGoals(newGoals);
     await saveDailyGoals(newGoals);
+    
+    // Sauvegarder l'objectif hebdomadaire de la salle si fourni
+    if (weeklyGym !== null && weeklyGym > 0) {
+      const currentWeekStart = getWeekStart();
+      await saveWeeklyGoal(weeklyGym, currentWeekStart);
+      setWeeklyGymGoal({ goal: weeklyGym, weekStart: currentWeekStart });
+    }
+    
     setEditingGoals(false);
     Alert.alert('Succès', 'Objectifs mis à jour');
   };
@@ -834,6 +856,19 @@ export default function InfoScreen({ refreshAuth }) {
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Salle (fois par semaine)</Text>
+              <TextInput
+                style={styles.input}
+                value={goalsForm.weeklyGym}
+                onChangeText={(text) =>
+                  setGoalsForm({ ...goalsForm, weeklyGym: text })
+                }
+                keyboardType="numeric"
+                placeholder="Ex: 4"
+              />
+            </View>
+
             <View style={styles.buttonContainer}>
               <TouchableOpacity
                 style={[styles.button, styles.cancelButton]}
@@ -870,6 +905,16 @@ export default function InfoScreen({ refreshAuth }) {
                 <Text style={styles.infoLabel}>Calories quotidiennes</Text>
                 <Text style={styles.infoValue}>
                   {goals.calories} kcal
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.infoRow}>
+              <Ionicons name="barbell" size={24} color="#8B5CF6" />
+              <View style={styles.infoContent}>
+                <Text style={styles.infoLabel}>Salle (par semaine)</Text>
+                <Text style={styles.infoValue}>
+                  {weeklyGymGoal?.goal ? `${weeklyGymGoal.goal} fois` : 'Non défini'}
                 </Text>
               </View>
             </View>
