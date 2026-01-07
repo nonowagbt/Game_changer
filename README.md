@@ -193,11 +193,25 @@ L'IMC est calculé selon la formule standard :
 IMC = Poids (kg) / Taille (m)²
 ```
 
-Catégories :
+### Catégories selon l'âge
+
+**Adultes (18-64 ans) - Seuils standards :**
 - < 18.5 : Insuffisance pondérale
 - 18.5 - 24.9 : Poids normal
 - 25 - 29.9 : Surpoids
 - ≥ 30 : Obésité
+
+**Personnes âgées (65 ans et plus) - Seuils ajustés :**
+- < 23 : Insuffisance pondérale
+- 23 - 27 : Poids normal
+- 27 - 30 : Surpoids
+- ≥ 30 : Obésité
+
+**Enfants et adolescents (< 18 ans) :**
+- Les seuils standards sont utilisés pour référence
+- Note : Les courbes de croissance spécifiques sont plus appropriées pour cette tranche d'âge
+
+Les seuils sont automatiquement ajustés en fonction de l'âge de l'utilisateur.
 
 ## Calcul des objectifs
 
