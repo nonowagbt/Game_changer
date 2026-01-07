@@ -32,6 +32,7 @@ export default function FoodItem({
             onChangeText={onPortionChange}
             keyboardType="numeric"
             placeholder="100"
+            placeholderTextColor={colors.textTertiary}
           />
         </View>
       )}
@@ -40,51 +41,51 @@ export default function FoodItem({
 }
 
 const styles = StyleSheet.create({
-  foodItem: {
-    width: '48%',
-    backgroundColor: colors.cardBackground,
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
-  foodItemSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary + '20',
-  },
-  foodIcon: {
-    fontSize: 40,
-    marginBottom: 5,
-  },
-  foodName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 5,
-  },
-  foodCalories: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  portionInput: {
-    marginTop: 10,
-    width: '100%',
-  },
-  portionLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 5,
-  },
-  portionInputField: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 5,
-    padding: 8,
-    color: colors.text,
-    fontSize: 14,
-  },
-});
+    foodItem: {
+      width: '48%',
+      backgroundColor: colors.cardBackground,
+      padding: 15,
+      borderRadius: 10,
+      borderWidth: 2,
+      borderColor: colors.border,
+      alignItems: 'center',
+    },
+    foodItemSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary + '20',
+    },
+    foodIcon: {
+      fontSize: 40,
+      marginBottom: 5,
+    },
+    foodName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      textAlign: 'center',
+      marginBottom: 5,
+    },
+    foodCalories: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    portionInput: {
+      marginTop: 10,
+      width: '100%',
+    },
+    portionLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 5,
+    },
+    portionInputField: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 5,
+      padding: 8,
+      color: colors.text,
+      fontSize: 14,
+    },
+  });
 

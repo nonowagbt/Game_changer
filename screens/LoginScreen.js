@@ -15,7 +15,7 @@ import { signIn, getLastEmail } from '../utils/auth';
 import { colors } from '../theme/colors';
 
 export default function LoginScreen({ onLogin, onSignUp }) {
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -30,7 +30,7 @@ export default function LoginScreen({ onLogin, onSignUp }) {
   const loadLastEmail = async () => {
     const lastEmail = await getLastEmail();
     if (lastEmail) {
-      setEmail(lastEmail);
+      setIdentifier(lastEmail);
       setRememberMe(true); // Si un email est trouvé, activer "Se rappeler de moi"
     }
   };
@@ -39,22 +39,63 @@ export default function LoginScreen({ onLogin, onSignUp }) {
     // Réinitialiser l'erreur
     setError('');
     
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError('Veuillez remplir tous les champs');
       return;
     }
 
     setLoading(true);
     try {
-      await signIn(email, password, rememberMe);
+      await signIn(identifier, password, rememberMe);
       if (onLogin) {
         onLogin();
       }
     } catch (error) {
       // Afficher l'erreur en rouge dans le formulaire
-      setError(error.message || 'Email ou mot de passe incorrect');
+      setError(error.message || 'Identifiant ou mot de passe incorrect');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Déterminer si l'identifiant ressemble à un numéro de téléphone
+  const isPhoneNumber = (text) => {
+    if (!text) return false;
+    // Un numéro de téléphone contient principalement des chiffres
+    // et peut avoir des espaces, tirets, parenthèses, et un + au début
+    const cleaned = text.replace(/[\s\-\+\(\)]/g, '');
+    // Doit contenir au moins 8 chiffres pour être considéré comme un téléphone
+    return /^[\d\s\-\+\(\)]+$/.test(text) && cleaned.length >= 8 && /^\d+$/.test(cleaned);
+  };
+
+  // Déterminer l'icône et le placeholder selon le type d'identifiant
+  const getIdentifierIcon = () => {
+    if (identifier.includes('@')) {
+      return 'mail-outline';
+    } else if (isPhoneNumber(identifier)) {
+      return 'call-outline';
+    } else {
+      return 'at';
+    }
+  };
+
+  const getIdentifierPlaceholder = () => {
+    if (identifier.includes('@')) {
+      return 'votre@email.com';
+    } else if (isPhoneNumber(identifier)) {
+      return '+33 6 12 34 56 78';
+    } else {
+      return 'votre_username';
+    }
+  };
+
+  const getIdentifierLabel = () => {
+    if (identifier.includes('@')) {
+      return 'Email';
+    } else if (isPhoneNumber(identifier)) {
+      return 'Numéro de téléphone';
+    } else {
+      return 'Username';
     }
   };
 
@@ -75,22 +116,38 @@ export default function LoginScreen({ onLogin, onSignUp }) {
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>
+              {identifier ? getIdentifierLabel() : 'Email, Username ou Téléphone'}
+            </Text>
             <View style={[styles.inputContainer, error && styles.inputContainerError]}>
-              <Ionicons name="mail-outline" size={20} color={error ? colors.error : colors.textSecondary} style={styles.inputIcon} />
+              <Ionicons 
+                name={getIdentifierIcon()} 
+                size={20} 
+                color={error ? colors.error : colors.textSecondary} 
+                style={styles.inputIcon} 
+              />
               <TextInput
                 style={styles.input}
-                value={email}
+                value={identifier}
                 onChangeText={(text) => {
-                  setEmail(text);
+                  setIdentifier(text);
                   setError(''); // Réinitialiser l'erreur quand l'utilisateur tape
                 }}
-                keyboardType="email-address"
+                keyboardType={
+                  identifier.includes('@') 
+                    ? 'email-address' 
+                    : /^[\d\s\-\+\(\)]+$/.test(identifier) 
+                      ? 'phone-pad' 
+                      : 'default'
+                }
                 autoCapitalize="none"
-                placeholder="votre@email.com"
+                placeholder="Email, username ou numéro de téléphone"
                 placeholderTextColor={colors.textTertiary}
               />
             </View>
+            <Text style={styles.hintText}>
+              Vous pouvez vous connecter avec votre email, votre username ou votre numéro de téléphone
+            </Text>
           </View>
 
           <View style={styles.inputGroup}>
@@ -301,6 +358,12 @@ const styles = StyleSheet.create({
     color: colors.error,
     fontSize: 14,
     fontWeight: '600',
+  },
+  hintText: {
+    fontSize: 12,
+    color: colors.textTertiary,
+    marginTop: 5,
+    fontStyle: 'italic',
   },
 });
 

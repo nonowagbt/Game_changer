@@ -62,6 +62,58 @@ export default function ProfileImagePicker({ imageUri, onImageSelected, onImageR
     );
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 15,
+    },
+    profileImageContainer: {
+      position: 'relative',
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      overflow: 'hidden',
+      borderWidth: 3,
+      borderColor: colors.primary,
+      backgroundColor: colors.cardBackground,
+    },
+    profileImage: {
+      width: '100%',
+      height: '100%',
+    },
+    editOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.6)',
+      padding: 8,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    placeholderContainer: {
+      width: '100%',
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.backgroundSecondary,
+    },
+    cameraIcon: {
+      position: 'absolute',
+      bottom: 10,
+      right: 10,
+      backgroundColor: colors.primary,
+      borderRadius: 15,
+      padding: 5,
+    },
+  });
+
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Photo de profil</Text>
@@ -94,56 +146,4 @@ export default function ProfileImagePicker({ imageUri, onImageSelected, onImageR
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 15,
-  },
-  profileImageContainer: {
-    position: 'relative',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: colors.primary,
-    backgroundColor: colors.cardBackground,
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-  },
-  editOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  placeholderContainer: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.backgroundSecondary,
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 10,
-    right: 10,
-    backgroundColor: colors.primary,
-    borderRadius: 15,
-    padding: 5,
-  },
-});
 
