@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getWorkouts, saveWorkouts } from '../utils/db';
@@ -17,6 +18,425 @@ import { colors } from '../theme/colors';
 import ExerciseImagePicker from '../components/ExerciseImagePicker';
 
 export default function WorkoutScreen() {
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    listContainer: {
+      padding: 15,
+    },
+    emptyContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 20,
+    },
+    emptyText: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.textSecondary,
+      marginTop: 20,
+    },
+    emptySubtext: {
+      fontSize: 14,
+      color: colors.textTertiary,
+      marginTop: 10,
+    },
+    workoutCard: {
+      backgroundColor: colors.cardBackground,
+      padding: 20,
+      borderRadius: 15,
+      marginBottom: 15,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.accentLine,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    workoutHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 15,
+    },
+    workoutTitleContainer: {
+      flex: 1,
+    },
+    workoutName: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    exerciseCount: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 5,
+    },
+    workoutActions: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    iconButton: {
+      padding: 5,
+    },
+    exercisesList: {
+      marginTop: 10,
+      gap: 10,
+    },
+    exercisePreview: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      backgroundColor: colors.background,
+      borderRadius: 8,
+      marginTop: 8,
+    },
+    exercisePreviewName: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    exercisePreviewDetails: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    exerciseItem: {
+      backgroundColor: colors.backgroundSecondary,
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    exerciseContent: {
+      flexDirection: 'row',
+      gap: 15,
+    },
+    exerciseImage: {
+      width: 80,
+      height: 80,
+      borderRadius: 10,
+      backgroundColor: colors.background,
+    },
+    exerciseEmojiContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 10,
+      backgroundColor: colors.cardBackground,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    exerciseEmoji: {
+      fontSize: 40,
+    },
+    exerciseInfo: {
+      flex: 1,
+    },
+    exerciseHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    exerciseName: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      flex: 1,
+    },
+    exerciseActions: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    exerciseDetails: {
+      marginTop: 8,
+    },
+    exerciseDetailText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 5,
+    },
+    serieRow: {
+      paddingVertical: 4,
+    },
+    serieText: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    fab: {
+      position: 'absolute',
+      right: 20,
+      bottom: 20,
+      width: 60,
+      height: 60,
+      borderRadius: 30,
+      backgroundColor: colors.primary,
+      justifyContent: 'center',
+      alignItems: 'center',
+      shadowColor: colors.background,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 4,
+      elevation: 5,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'flex-end',
+    },
+    modalContent: {
+      backgroundColor: colors.cardBackground,
+      borderTopLeftRadius: 20,
+      borderTopRightRadius: 20,
+      maxHeight: '90%',
+      paddingBottom: 20,
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      padding: 20,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    closeButton: {
+      padding: 5,
+    },
+    form: {
+      padding: 20,
+    },
+    inputGroup: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    smallLabel: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textSecondary,
+      marginBottom: 4,
+    },
+    input: {
+      borderWidth: 1,
+      borderColor: colors.inputBorder,
+      borderRadius: 10,
+      padding: 15,
+      fontSize: 16,
+      backgroundColor: colors.inputBackground,
+      color: colors.inputText,
+    },
+    smallInput: {
+      borderWidth: 1,
+      borderColor: colors.inputBorder,
+      borderRadius: 8,
+      padding: 10,
+      fontSize: 14,
+      backgroundColor: colors.inputBackground,
+      color: colors.inputText,
+    },
+    sectionHeader: {
+      marginTop: 20,
+      marginBottom: 15,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    addButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      padding: 12,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
+      marginTop: 10,
+    },
+    addButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    emptyExercises: {
+      padding: 20,
+      alignItems: 'center',
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 10,
+      marginVertical: 10,
+    },
+    emptyExercisesText: {
+      fontSize: 14,
+      color: colors.textTertiary,
+    },
+    defaultsSection: {
+      backgroundColor: colors.backgroundSecondary,
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 20,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    rowInputs: {
+      flexDirection: 'row',
+      gap: 10,
+      marginBottom: 15,
+    },
+    halfInput: {
+      flex: 1,
+    },
+    thirdInput: {
+      flex: 1,
+    },
+    applyButton: {
+      backgroundColor: colors.primary,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginTop: 10,
+    },
+    applyButtonText: {
+      color: colors.cardBackground,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    seriesSection: {
+      marginTop: 20,
+    },
+    serieCard: {
+      backgroundColor: colors.cardBackground,
+      padding: 15,
+      borderRadius: 10,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    serieTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+      padding: 15,
+      borderRadius: 10,
+      alignItems: 'center',
+      marginTop: 20,
+    },
+    saveButtonText: {
+      color: colors.cardBackground,
+      fontSize: 18,
+      fontWeight: 'bold',
+    },
+    inlineExerciseForm: {
+      backgroundColor: colors.backgroundSecondary,
+      padding: 15,
+      borderRadius: 10,
+      marginTop: 15,
+      marginBottom: 15,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.accentLine,
+    },
+    exerciseFormHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    exerciseFormTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    exerciseFormActions: {
+      flexDirection: 'row',
+      gap: 10,
+      marginTop: 15,
+    },
+    exerciseFormButton: {
+      flex: 1,
+      padding: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    cancelExerciseButton: {
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cancelExerciseButtonText: {
+      color: colors.textSecondary,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    saveExerciseButton: {
+      backgroundColor: colors.primary,
+    },
+    saveExerciseButtonText: {
+      color: colors.cardBackground,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    exercisesListContainer: {
+      marginTop: 15,
+      marginBottom: 15,
+    },
+    exercisesListTitle: {
+      fontSize: 16,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 10,
+    },
+    exerciseCountSeparator: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: '600',
+    },
+    estimatedTimeContainer: {
+      marginBottom: 20,
+    },
+    estimatedTimeBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      backgroundColor: colors.backgroundSecondary,
+      padding: 15,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.primary,
+    },
+    estimatedTimeTextContainer: {
+      flex: 1,
+    },
+    estimatedTimeLabel: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 2,
+    },
+    estimatedTimeValue: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.primary,
+    },
+  });
+  
   const [workouts, setWorkouts] = useState([]);
   const [workoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -335,6 +755,73 @@ export default function WorkoutScreen() {
     }
   };
 
+  // Formater l'entraînement en texte pour le partage
+  const formatWorkoutForShare = (workout) => {
+    let text = `🏋️ ${workout.name}\n\n`;
+    
+    const estimatedTime = calculateWorkoutTime(workout.exercises);
+    if (estimatedTime > 0) {
+      text += `⏱️ Temps estimé: ${formatTime(estimatedTime)}\n\n`;
+    }
+    
+    if (workout.exercises && workout.exercises.length > 0) {
+      text += `📋 ${workout.exercises.length} exercice${workout.exercises.length > 1 ? 's' : ''}:\n\n`;
+      
+      workout.exercises.forEach((exercise, index) => {
+        text += `${index + 1}. ${exercise.name}\n`;
+        
+        if (exercise.series && exercise.series.length > 0) {
+          exercise.series.forEach((serie, serieIndex) => {
+            const reps = serie.reps || '0';
+            const weight = serie.weight || '0';
+            const restTime = serie.restTime || '0';
+            
+            text += `   Série ${serieIndex + 1}: ${reps} reps × ${weight} kg`;
+            if (restTime > 0) {
+              text += ` (repos: ${restTime}s)`;
+            }
+            text += '\n';
+          });
+        }
+        text += '\n';
+      });
+    } else {
+      text += 'Aucun exercice défini.\n';
+    }
+    
+    text += '\n---\n';
+    text += 'Créé avec Game Changer';
+    
+    return text;
+  };
+
+  // Partager l'entraînement
+  const handleShareWorkout = async (workout) => {
+    try {
+      const workoutText = formatWorkoutForShare(workout);
+      const result = await Share.share({
+        message: workoutText,
+        title: workout.name,
+      });
+      
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          // Partagé avec un type d'activité spécifique
+          console.log('Partagé avec:', result.activityType);
+        } else {
+          // Partagé
+          console.log('Entraînement partagé');
+        }
+      } else if (result.action === Share.dismissedAction) {
+        // Partage annulé
+        console.log('Partage annulé');
+      }
+    } catch (error) {
+      Alert.alert('Erreur', 'Impossible de partager l\'entraînement');
+      console.error('Erreur lors du partage:', error);
+    }
+  };
+
   const renderExerciseItem = ({ item, index }) => {
     const isExerciseFromDB = item.imageUri && item.imageUri.startsWith('exercise:');
     const exerciseData = isExerciseFromDB ? item.imageUri.split(':') : null;
@@ -416,6 +903,12 @@ export default function WorkoutScreen() {
             </Text>
           </View>
           <View style={styles.workoutActions}>
+            <TouchableOpacity
+              onPress={() => handleShareWorkout(item)}
+              style={styles.iconButton}
+            >
+              <Ionicons name="share-outline" size={20} color={colors.primary} />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleOpenWorkoutModal(item)}
               style={styles.iconButton}
@@ -786,422 +1279,3 @@ export default function WorkoutScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  listContainer: {
-    padding: 15,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.textSecondary,
-    marginTop: 20,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: colors.textTertiary,
-    marginTop: 10,
-  },
-  workoutCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 15,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accentLine,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  workoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 15,
-  },
-  workoutTitleContainer: {
-    flex: 1,
-  },
-  workoutName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  exerciseCount: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 5,
-  },
-  workoutActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  iconButton: {
-    padding: 5,
-  },
-  exercisesList: {
-    marginTop: 10,
-    gap: 10,
-  },
-  exercisePreview: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    marginTop: 8,
-  },
-  exercisePreviewName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  exercisePreviewDetails: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  exerciseItem: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  exerciseContent: {
-    flexDirection: 'row',
-    gap: 15,
-  },
-  exerciseImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-  },
-  exerciseEmojiContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    backgroundColor: colors.cardBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  exerciseEmoji: {
-    fontSize: 40,
-  },
-  exerciseInfo: {
-    flex: 1,
-  },
-  exerciseHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  exerciseName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    flex: 1,
-  },
-  exerciseActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  exerciseDetails: {
-    marginTop: 8,
-  },
-  exerciseDetailText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 5,
-  },
-  serieRow: {
-    paddingVertical: 4,
-  },
-  serieText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.background,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.cardBackground,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  closeButton: {
-    padding: 5,
-  },
-  form: {
-    padding: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  smallLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    backgroundColor: colors.inputBackground,
-    color: colors.inputText,
-  },
-  smallInput: {
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 14,
-    backgroundColor: colors.inputBackground,
-    color: colors.inputText,
-  },
-  sectionHeader: {
-    marginTop: 20,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  addButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  emptyExercises: {
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 10,
-    marginVertical: 10,
-  },
-  emptyExercisesText: {
-    fontSize: 14,
-    color: colors.textTertiary,
-  },
-  defaultsSection: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  rowInputs: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 15,
-  },
-  halfInput: {
-    flex: 1,
-  },
-  thirdInput: {
-    flex: 1,
-  },
-  applyButton: {
-    backgroundColor: colors.primary,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  applyButtonText: {
-    color: colors.cardBackground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  seriesSection: {
-    marginTop: 20,
-  },
-  serieCard: {
-    backgroundColor: colors.cardBackground,
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  serieTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  saveButtonText: {
-    color: colors.cardBackground,
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  inlineExerciseForm: {
-    backgroundColor: colors.backgroundSecondary,
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 15,
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accentLine,
-  },
-  exerciseFormHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  exerciseFormTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  exerciseFormActions: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 15,
-  },
-  exerciseFormButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  cancelExerciseButton: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelExerciseButtonText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  saveExerciseButton: {
-    backgroundColor: colors.primary,
-  },
-  saveExerciseButtonText: {
-    color: colors.cardBackground,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  exercisesListContainer: {
-    marginTop: 15,
-    marginBottom: 15,
-  },
-  exercisesListTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 10,
-  },
-  exerciseCountSeparator: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    fontWeight: '600',
-  },
-  estimatedTimeContainer: {
-    marginBottom: 20,
-  },
-  estimatedTimeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.backgroundSecondary,
-    padding: 15,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-  },
-  estimatedTimeTextContainer: {
-    flex: 1,
-  },
-  estimatedTimeLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  estimatedTimeValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-  },
-});
