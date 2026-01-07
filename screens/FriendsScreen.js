@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   FlatList,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -20,6 +21,7 @@ export default function FriendsScreen() {
   const [friendSearch, setFriendSearch] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [showNewMessageModal, setShowNewMessageModal] = useState(false);
 
   useEffect(() => {
     loadFriends();
@@ -258,13 +260,81 @@ export default function FriendsScreen() {
                   <Text style={styles.friendEmail}>{item.email}</Text>
                 )}
               </View>
-              <TouchableOpacity style={styles.friendAction}>
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              <TouchableOpacity 
+                style={styles.friendAction}
+                onPress={() => navigation.navigate('Chat', { friend: item })}
+              >
+                <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
           )}
           contentContainerStyle={styles.friendsList}
         />
+      )}
+
+      {/* Bouton flottant pour démarrer une nouvelle conversation */}
+      {friends.length > 0 && (
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => {
+            // Ouvrir un modal pour sélectionner un ami avec qui démarrer une conversation
+            if (friends.length === 1) {
+              // Si un seul ami, ouvrir directement la conversation
+              navigation.navigate('Chat', { friend: friends[0] });
+            } else {
+              // Sinon, ouvrir un modal de sélection
+              setShowNewMessageModal(true);
+            }
+          }}
+        >
+          <Ionicons name="chatbubble" size={28} color={colors.cardBackground} />
+        </TouchableOpacity>
+      )}
+
+      {/* Modal de sélection d'ami pour nouvelle conversation */}
+      {showNewMessageModal && (
+        <Modal
+          visible={showNewMessageModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowNewMessageModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nouveau message</Text>
+                <TouchableOpacity onPress={() => setShowNewMessageModal(false)}>
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.modalSubtitle}>Sélectionnez un ami</Text>
+              <FlatList
+                data={friends}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.modalFriendItem}
+                    onPress={() => {
+                      setShowNewMessageModal(false);
+                      navigation.navigate('Chat', { friend: item });
+                    }}
+                  >
+                    <View style={styles.modalFriendAvatar}>
+                      <Ionicons name="person" size={24} color={colors.primary} />
+                    </View>
+                    <View style={styles.modalFriendInfo}>
+                      <Text style={styles.modalFriendName}>{item.name || item.email}</Text>
+                      {item.username && (
+                        <Text style={styles.modalFriendUsername}>@{item.username}</Text>
+                      )}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
       )}
     </View>
   );
@@ -517,5 +587,86 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 2,
   },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.cardBackground,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 20,
+  },
+  modalFriendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalFriendAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: colors.primary + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 15,
+  },
+  modalFriendInfo: {
+    flex: 1,
+  },
+  modalFriendName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  modalFriendUsername: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '500',
+  },
 });
+
 

@@ -12,6 +12,7 @@ import InfoScreen from './screens/InfoScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import ScannerScreen from './screens/ScannerScreen';
 import FriendsScreen from './screens/FriendsScreen';
+import ChatScreen from './screens/ChatScreen';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import { getCurrentUser } from './utils/auth';
@@ -38,6 +39,29 @@ function InfoStack({ refreshAuth }) {
         }}
       >
         {(props) => <SettingsScreen {...props} refreshAuth={refreshAuth} />}
+      </Stack.Screen>
+    </Stack.Navigator>
+  );
+}
+
+// Stack pour l'écran Amis (permet de naviguer vers Chat)
+function FriendsStack({ refreshAuth }) {
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen name="FriendsMain">
+        {(props) => <FriendsScreen {...props} refreshAuth={refreshAuth} />}
+      </Stack.Screen>
+      <Stack.Screen 
+        name="Chat" 
+        options={{
+          headerShown: false,
+        }}
+      >
+        {(props) => <ChatScreen {...props} />}
       </Stack.Screen>
     </Stack.Navigator>
   );
@@ -107,47 +131,52 @@ export default function App() {
 }
 
 function MainTabs({ refreshAuth }) {
+  const screenOptions = ({ route }) => ({
+    tabBarIcon: ({ focused, color, size }) => {
+      let iconName;
+      if (route.name === 'Accueil') {
+        iconName = focused ? 'home' : 'home-outline';
+      } else if (route.name === 'Entraînements') {
+        iconName = focused ? 'barbell' : 'barbell-outline';
+      } else if (route.name === 'Scanner') {
+        iconName = focused ? 'camera' : 'camera-outline';
+      } else if (route.name === 'Amis') {
+        iconName = focused ? 'people' : 'people-outline';
+      } else if (route.name === 'Informations') {
+        iconName = focused ? 'person' : 'person-outline';
+      }
+      return <Ionicons name={iconName} size={size} color={color} />;
+    },
+    tabBarActiveTintColor: colors.primary,
+    tabBarInactiveTintColor: colors.textTertiary,
+    tabBarStyle: {
+      backgroundColor: colors.cardBackground,
+      borderTopColor: colors.border,
+      borderTopWidth: 1,
+    },
+    headerStyle: {
+      backgroundColor: colors.cardBackground,
+      borderBottomColor: colors.border,
+      borderBottomWidth: 1,
+    },
+    headerTintColor: colors.text,
+    headerTitleStyle: {
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+  });
+  
   return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Accueil') {
-            iconName = focused ? 'home' : 'home-outline';
-          } else if (route.name === 'Entraînements') {
-            iconName = focused ? 'barbell' : 'barbell-outline';
-          } else if (route.name === 'Scanner') {
-            iconName = focused ? 'camera' : 'camera-outline';
-          } else if (route.name === 'Amis') {
-            iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Informations') {
-            iconName = focused ? 'person' : 'person-outline';
-          }
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: colors.cardBackground,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-        },
-        headerStyle: {
-          backgroundColor: colors.cardBackground,
-          borderBottomColor: colors.border,
-          borderBottomWidth: 1,
-        },
-        headerTintColor: colors.text,
-        headerTitleStyle: {
-          fontWeight: 'bold',
-          color: colors.text,
-        },
-      })}
-    >
+    <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Entraînements" component={WorkoutScreen} />
       <Tab.Screen name="Scanner" component={ScannerScreen} />
-      <Tab.Screen name="Amis" component={FriendsScreen} />
+      <Tab.Screen 
+        name="Amis" 
+        options={{ headerShown: false }}
+      >
+        {(props) => <FriendsStack {...props} refreshAuth={refreshAuth} />}
+      </Tab.Screen>
       <Tab.Screen name="Informations">
         {(props) => <InfoStack {...props} refreshAuth={refreshAuth} />}
       </Tab.Screen>

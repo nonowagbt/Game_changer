@@ -64,6 +64,9 @@ const STORAGE_KEYS = {
   WORKOUTS: 'workouts',
   USER_INFO: 'user_info',
   DAILY_PROGRESS: 'daily_progress',
+  MESSAGES: 'messages',
+  WEEKLY_GOALS: 'weekly_goals',
+  GYM_ATTENDANCE: 'gym_attendance',
 };
 
 // Daily Goals
@@ -454,23 +457,30 @@ export const calculateStreaks = async () => {
     
     // Vérifier le streak de gym (salle)
     if (i === 0 || gymStreak > 0) {
-      // Vérifier s'il y a un workout ce jour-là
-      // Les workouts peuvent avoir date, createdAt, ou updatedAt
-      const hasWorkout = workouts.some(workout => {
-        const workoutDateStr = workout.date || workout.createdAt || workout.updatedAt;
-        if (!workoutDateStr) return false;
-        const workoutDate = new Date(workoutDateStr);
-        workoutDate.setHours(0, 0, 0, 0);
-        return workoutDate.getTime() === checkDate.getTime();
-      });
+      // Vérifier la présence à la salle via markGymAttendance
+      let hasGymAttendance = false;
+      try {
+        const weekStart = getWeekStart(checkDate);
+        const weekAttendance = await getGymAttendanceForWeek(weekStart);
+        hasGymAttendance = weekAttendance[dateKey] || false;
+      } catch (error) {
+        // En cas d'erreur, vérifier aussi les workouts comme fallback
+        hasGymAttendance = workouts.some(workout => {
+          const workoutDateStr = workout.date || workout.createdAt || workout.updatedAt;
+          if (!workoutDateStr) return false;
+          const workoutDate = new Date(workoutDateStr);
+          workoutDate.setHours(0, 0, 0, 0);
+          return workoutDate.getTime() === checkDate.getTime();
+        });
+      }
       
-      if (hasWorkout) {
+      if (hasGymAttendance) {
         gymStreak++;
       } else if (i > 0) {
-        // Si pas de workout et que ce n'est pas aujourd'hui, arrêter le streak
+        // Si pas de présence et que ce n'est pas aujourd'hui, arrêter le streak
         break;
       }
-      // Si i === 0 (aujourd'hui) et pas de workout, on ne fait rien
+      // Si i === 0 (aujourd'hui) et pas de présence, on ne fait rien
       // Le streak reste à 0 ou continue selon les jours précédents
     }
     
@@ -506,4 +516,266 @@ export const calculateStreaks = async () => {
     eating: eatingStreak,
     drinking: drinkingStreak,
   };
+};
+
+// Messages
+export const getMessages = async (userId1, userId2) => {
+  if (!mongoConfigured) {
+    // Fallback vers AsyncStorage
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
+      const allMessages = data ? JSON.parse(data) : [];
+      // Filtrer les messages entre les deux utilisateurs
+      return allMessages.filter(
+        msg => 
+          (msg.senderId === userId1 && msg.receiverId === userId2) ||
+          (msg.senderId === userId2 && msg.receiverId === userId1)
+      ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    } catch (error) {
+      console.error('Error getting messages:', error);
+      return [];
+    }
+  }
+
+  try {
+    // Récupérer les messages où l'utilisateur est soit l'expéditeur soit le destinataire
+    const result = await mongoRequest('find', 'messages', {
+      $or: [
+        { senderId: userId1, receiverId: userId2 },
+        { senderId: userId2, receiverId: userId1 }
+      ]
+    }, {
+      sort: { timestamp: 1 },
+    });
+    return result.documents || [];
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    // Fallback vers AsyncStorage
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
+    const allMessages = data ? JSON.parse(data) : [];
+    return allMessages.filter(
+      msg => 
+        (msg.senderId === userId1 && msg.receiverId === userId2) ||
+        (msg.senderId === userId2 && msg.receiverId === userId1)
+    ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  }
+};
+
+export const sendMessage = async (message) => {
+  if (!mongoConfigured) {
+    // Fallback vers AsyncStorage
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
+      const messages = data ? JSON.parse(data) : [];
+      messages.push(message);
+      await AsyncStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw error;
+    }
+    return;
+  }
+
+  try {
+    await mongoRequest('insertOne', 'messages', {}, {
+      document: {
+        ...message,
+        createdAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    // Fallback vers AsyncStorage
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
+    const messages = data ? JSON.parse(data) : [];
+    messages.push(message);
+    await AsyncStorage.setItem(STORAGE_KEYS.MESSAGES, JSON.stringify(messages));
+  }
+};
+
+export const sendWorkoutMessage = async (message) => {
+  // Utilise la même fonction que sendMessage mais avec type 'workout'
+  return sendMessage(message);
+};
+
+// Obtenir le début de la semaine (lundi)
+export const getWeekStart = (date = new Date()) => {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Ajuster pour que lundi = 1
+  const monday = new Date(d.setDate(diff));
+  monday.setHours(0, 0, 0, 0);
+  return monday.toISOString().split('T')[0];
+};
+
+// Objectifs hebdomadaires pour la salle
+export const getWeeklyGoal = async () => {
+  if (!mongoConfigured) {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.WEEKLY_GOALS);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  try {
+    const result = await mongoRequest('findOne', 'weeklyGoals', {}, {
+      sort: { weekStart: -1 },
+    });
+    return result.document || null;
+  } catch (error) {
+    console.error('Error getting weekly goal:', error);
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.WEEKLY_GOALS);
+    return data ? JSON.parse(data) : null;
+  }
+};
+
+export const saveWeeklyGoal = async (goal, weekStart) => {
+  const weeklyGoal = {
+    goal,
+    weekStart,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!mongoConfigured) {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.WEEKLY_GOALS, JSON.stringify(weeklyGoal));
+    } catch (error) {
+      console.error('Error saving weekly goal:', error);
+    }
+    return;
+  }
+
+  try {
+    const userId = await getUserId();
+    await mongoRequest('updateOne', 'weeklyGoals', { weekStart }, {
+      update: {
+        $set: {
+          ...weeklyGoal,
+          userId,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      upsert: true,
+    });
+  } catch (error) {
+    console.error('Error saving weekly goal:', error);
+    await AsyncStorage.setItem(STORAGE_KEYS.WEEKLY_GOALS, JSON.stringify(weeklyGoal));
+  }
+};
+
+// Marquer la présence à la salle pour un jour donné
+export const markGymAttendance = async (date, attended) => {
+  const dateKey = date instanceof Date ? date.toISOString().split('T')[0] : date;
+  
+  if (!mongoConfigured) {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
+      const attendance = data ? JSON.parse(data) : {};
+      if (attended) {
+        attendance[dateKey] = true;
+      } else {
+        delete attendance[dateKey];
+      }
+      await AsyncStorage.setItem(STORAGE_KEYS.GYM_ATTENDANCE, JSON.stringify(attendance));
+    } catch (error) {
+      console.error('Error marking gym attendance:', error);
+    }
+    return;
+  }
+
+  try {
+    const userId = await getUserId();
+    if (attended) {
+      await mongoRequest('updateOne', 'gymAttendance', { date: dateKey }, {
+        update: {
+          $set: {
+            date: dateKey,
+            userId,
+            attended: true,
+            createdAt: new Date().toISOString(),
+          },
+        },
+        upsert: true,
+      });
+    } else {
+      await mongoRequest('deleteOne', 'gymAttendance', { date: dateKey });
+    }
+  } catch (error) {
+    console.error('Error marking gym attendance:', error);
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
+    const attendance = data ? JSON.parse(data) : {};
+    if (attended) {
+      attendance[dateKey] = true;
+    } else {
+      delete attendance[dateKey];
+    }
+    await AsyncStorage.setItem(STORAGE_KEYS.GYM_ATTENDANCE, JSON.stringify(attendance));
+  }
+};
+
+// Obtenir la présence à la salle pour une semaine
+export const getGymAttendanceForWeek = async (weekStart) => {
+  if (!mongoConfigured) {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
+      const attendance = data ? JSON.parse(data) : {};
+      const weekStartDate = new Date(weekStart);
+      
+      const weekAttendance = {};
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(weekStartDate);
+        date.setDate(date.getDate() + i);
+        const dateKey = date.toISOString().split('T')[0];
+        weekAttendance[dateKey] = attendance[dateKey] || false;
+      }
+      return weekAttendance;
+    } catch (error) {
+      return {};
+    }
+  }
+
+  try {
+    const weekStartDate = new Date(weekStart);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    
+    const result = await mongoRequest('find', 'gymAttendance', {
+      date: {
+        $gte: weekStart,
+        $lte: weekEndDate.toISOString().split('T')[0],
+      },
+    });
+    
+    const attendance = {};
+    if (result.documents) {
+      result.documents.forEach(doc => {
+        attendance[doc.date] = true;
+      });
+    }
+    
+    // Remplir les jours manquants avec false
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStartDate);
+      date.setDate(date.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      if (!attendance[dateKey]) {
+        attendance[dateKey] = false;
+      }
+    }
+    
+    return attendance;
+  } catch (error) {
+    console.error('Error getting gym attendance:', error);
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
+    const attendance = data ? JSON.parse(data) : {};
+    return attendance;
+  }
+};
+
+// Compter le nombre de fois où on est allé à la salle cette semaine
+export const getWeeklyGymCount = async (weekStart) => {
+  const attendance = await getGymAttendanceForWeek(weekStart);
+  return Object.values(attendance).filter(Boolean).length;
 };
