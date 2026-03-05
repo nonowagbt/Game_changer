@@ -14,18 +14,19 @@ import { useNavigation } from '@react-navigation/native';
 import { getUserInfo, saveUserInfo, getDailyGoals, saveDailyGoals, getWeeklyGoal, saveWeeklyGoal, getWeekStart } from '../utils/db';
 import { signOut } from '../utils/auth';
 import { colors } from '../theme/colors';
-import { 
-  calculateCalories, 
-  calculateWater, 
-  getProgramName, 
-  getProgramDescription 
+import {
+  calculateCalories,
+  calculateWater,
+  getProgramName,
+  getProgramDescription
 } from '../utils/goalCalculator';
 import ProfileImagePicker from '../components/ProfileImagePicker';
+import BodyAnalysisCard from '../components/BodyAnalysisCard';
 
 export default function InfoScreen({ refreshAuth }) {
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'measurements', 'goals'
-  
+
   // Informations personnelles
   const [personalInfo, setPersonalInfo] = useState({ email: '', name: '', username: '', phone: '', age: 30, gender: 'male', profileImage: null });
   const [editingPersonal, setEditingPersonal] = useState(false);
@@ -52,7 +53,7 @@ export default function InfoScreen({ refreshAuth }) {
   const loadData = async () => {
     const userInfo = await getUserInfo();
     const dailyGoals = await getDailyGoals();
-    
+
     // Informations personnelles
     setPersonalInfo({
       email: userInfo.email || '',
@@ -85,18 +86,18 @@ export default function InfoScreen({ refreshAuth }) {
 
     // Objectifs
     setGoals(dailyGoals);
-    
+
     // Charger l'objectif hebdomadaire de la salle
     const currentWeekStart = getWeekStart();
     const savedWeeklyGoal = await getWeeklyGoal();
     setWeeklyGymGoal(savedWeeklyGoal);
-    
+
     setGoalsForm({
       water: dailyGoals.water ? dailyGoals.water.toString() : '',
       calories: dailyGoals.calories ? dailyGoals.calories.toString() : '',
       weeklyGym: savedWeeklyGoal?.goal ? savedWeeklyGoal.goal.toString() : '',
     });
-    
+
     // Programme
     setSelectedProgram(userInfo.program || 'maintain');
     setUserAge(userInfo.age || 30);
@@ -152,7 +153,7 @@ export default function InfoScreen({ refreshAuth }) {
     }
 
     const newMeasurements = { weight, height };
-    
+
     // Récupérer les autres infos existantes
     const existingInfo = await getUserInfo();
     const updatedInfo = {
@@ -194,7 +195,7 @@ export default function InfoScreen({ refreshAuth }) {
   // Changer de programme
   const handleProgramChange = async (program) => {
     setSelectedProgram(program);
-    
+
     // Sauvegarder le programme dans userInfo
     const existingInfo = await getUserInfo();
     const updatedInfo = {
@@ -243,14 +244,14 @@ export default function InfoScreen({ refreshAuth }) {
     const newGoals = { water, calories };
     setGoals(newGoals);
     await saveDailyGoals(newGoals);
-    
+
     // Sauvegarder l'objectif hebdomadaire de la salle si fourni
     if (weeklyGym !== null && weeklyGym > 0) {
       const currentWeekStart = getWeekStart();
       await saveWeeklyGoal(weeklyGym, currentWeekStart);
       setWeeklyGymGoal({ goal: weeklyGym, weekStart: currentWeekStart });
     }
-    
+
     setEditingGoals(false);
     Alert.alert('Succès', 'Objectifs mis à jour');
   };
@@ -267,10 +268,10 @@ export default function InfoScreen({ refreshAuth }) {
     if (!bmi) return null;
     const bmiValue = parseFloat(bmi);
     const userAge = age || personalInfo.age || 30;
-    
+
     // Seuils IMC adaptés selon l'âge
     let thresholds;
-    
+
     if (userAge < 18) {
       // Pour les enfants et adolescents, l'IMC standard n'est pas optimal
       // Mais on utilise des seuils légèrement ajustés pour référence
@@ -296,7 +297,7 @@ export default function InfoScreen({ refreshAuth }) {
         overweight: 30
       };
     }
-    
+
     if (bmiValue < thresholds.underweight) {
       return { label: 'Insuffisance pondérale', color: colors.info };
     }
@@ -450,7 +451,7 @@ export default function InfoScreen({ refreshAuth }) {
               <Text style={styles.profileSectionSubtitle}>
                 Ces informations sont visibles par vos amis
               </Text>
-              
+
               <View style={styles.profileImageDisplayContainer}>
                 {personalInfo.profileImage ? (
                   <Image
@@ -713,6 +714,9 @@ export default function InfoScreen({ refreshAuth }) {
           </View>
         </View>
       )}
+
+      {/* ── Analyse corporelle ── */}
+      <BodyAnalysisCard bmi={bmi} />
     </View>
   );
 
@@ -724,7 +728,7 @@ export default function InfoScreen({ refreshAuth }) {
         <Text style={styles.cardSubtitle}>
           Choisissez votre objectif pour calculer automatiquement vos besoins
         </Text>
-        
+
         <View style={styles.programContainer}>
           <TouchableOpacity
             style={[
@@ -733,10 +737,10 @@ export default function InfoScreen({ refreshAuth }) {
             ]}
             onPress={() => handleProgramChange('maintain')}
           >
-            <Ionicons 
-              name={selectedProgram === 'maintain' ? 'balance' : 'balance-outline'} 
-              size={24} 
-              color={selectedProgram === 'maintain' ? colors.cardBackground : colors.textSecondary} 
+            <Ionicons
+              name={selectedProgram === 'maintain' ? 'balance' : 'balance-outline'}
+              size={24}
+              color={selectedProgram === 'maintain' ? colors.cardBackground : colors.textSecondary}
             />
             <View style={styles.programButtonContent}>
               <Text style={[
@@ -761,10 +765,10 @@ export default function InfoScreen({ refreshAuth }) {
             ]}
             onPress={() => handleProgramChange('weight_loss')}
           >
-            <Ionicons 
-              name={selectedProgram === 'weight_loss' ? 'trending-down' : 'trending-down-outline'} 
-              size={24} 
-              color={selectedProgram === 'weight_loss' ? colors.cardBackground : colors.textSecondary} 
+            <Ionicons
+              name={selectedProgram === 'weight_loss' ? 'trending-down' : 'trending-down-outline'}
+              size={24}
+              color={selectedProgram === 'weight_loss' ? colors.cardBackground : colors.textSecondary}
             />
             <View style={styles.programButtonContent}>
               <Text style={[
@@ -789,10 +793,10 @@ export default function InfoScreen({ refreshAuth }) {
             ]}
             onPress={() => handleProgramChange('weight_gain')}
           >
-            <Ionicons 
-              name={selectedProgram === 'weight_gain' ? 'trending-up' : 'trending-up-outline'} 
-              size={24} 
-              color={selectedProgram === 'weight_gain' ? colors.cardBackground : colors.textSecondary} 
+            <Ionicons
+              name={selectedProgram === 'weight_gain' ? 'trending-up' : 'trending-up-outline'}
+              size={24}
+              color={selectedProgram === 'weight_gain' ? colors.cardBackground : colors.textSecondary}
             />
             <View style={styles.programButtonContent}>
               <Text style={[
@@ -972,7 +976,7 @@ export default function InfoScreen({ refreshAuth }) {
             <Ionicons name="settings-outline" size={24} color={colors.primary} />
           </TouchableOpacity>
         </View>
-        
+
         {/* Section profil */}
         <View style={styles.headerProfileSection}>
           {personalInfo.profileImage ? (
@@ -995,10 +999,10 @@ export default function InfoScreen({ refreshAuth }) {
           style={[styles.tab, activeTab === 'personal' && styles.activeTab]}
           onPress={() => setActiveTab('personal')}
         >
-          <Ionicons 
-            name={activeTab === 'personal' ? 'person' : 'person-outline'} 
-            size={20} 
-            color={activeTab === 'personal' ? colors.primary : colors.textSecondary} 
+          <Ionicons
+            name={activeTab === 'personal' ? 'person' : 'person-outline'}
+            size={20}
+            color={activeTab === 'personal' ? colors.primary : colors.textSecondary}
           />
           <Text style={[
             styles.tabText,
@@ -1012,10 +1016,10 @@ export default function InfoScreen({ refreshAuth }) {
           style={[styles.tab, activeTab === 'measurements' && styles.activeTab]}
           onPress={() => setActiveTab('measurements')}
         >
-          <Ionicons 
-            name={activeTab === 'measurements' ? 'body' : 'body-outline'} 
-            size={20} 
-            color={activeTab === 'measurements' ? colors.primary : colors.textSecondary} 
+          <Ionicons
+            name={activeTab === 'measurements' ? 'body' : 'body-outline'}
+            size={20}
+            color={activeTab === 'measurements' ? colors.primary : colors.textSecondary}
           />
           <Text style={[
             styles.tabText,
@@ -1029,10 +1033,10 @@ export default function InfoScreen({ refreshAuth }) {
           style={[styles.tab, activeTab === 'goals' && styles.activeTab]}
           onPress={() => setActiveTab('goals')}
         >
-          <Ionicons 
-            name={activeTab === 'goals' ? 'flag' : 'flag-outline'} 
-            size={20} 
-            color={activeTab === 'goals' ? colors.primary : colors.textSecondary} 
+          <Ionicons
+            name={activeTab === 'goals' ? 'flag' : 'flag-outline'}
+            size={20}
+            color={activeTab === 'goals' ? colors.primary : colors.textSecondary}
           />
           <Text style={[
             styles.tabText,
