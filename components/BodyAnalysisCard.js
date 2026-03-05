@@ -337,6 +337,15 @@ export default function BodyAnalysisCard({ bmi }) {
                     <Text style={s.idleText}>
                         Prenez-vous en photo (vue de face, entier) pour découvrir votre morphologie, vos points forts et axes d'amélioration.
                     </Text>
+
+                    {/* Conseil vestimentaire */}
+                    <View style={s.tipBox}>
+                        <Ionicons name="shirt-outline" size={18} color="#F59E0B" style={{ marginTop: 1 }} />
+                        <Text style={s.tipText}>
+                            <Text style={{ fontWeight: '700' }}>Conseil :</Text> évitez les habits trop larges, ils peuvent fausser le résultat. Pour un résultat optimal, prenez la photo en sous-vêtements ou en tenue de sport près du corps.
+                        </Text>
+                    </View>
+
                     <TouchableOpacity style={s.startBtn} onPress={handlePickPhoto}>
                         <Ionicons name="camera" size={20} color={colors.cardBackground} />
                         <Text style={s.startBtnText}>Commencer l'analyse</Text>
@@ -481,7 +490,15 @@ const s = StyleSheet.create({
     retryBtnText: { fontSize: 13, color: colors.textSecondary },
 
     idleWrap: { alignItems: 'center', paddingVertical: 10 },
-    idleText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+    idleText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
+
+    tipBox: {
+        flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+        backgroundColor: '#F59E0B18',
+        borderWidth: 1, borderColor: '#F59E0B50',
+        borderRadius: 12, padding: 12, marginBottom: 18, width: '100%',
+    },
+    tipText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 18 },
 
     startBtn: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
