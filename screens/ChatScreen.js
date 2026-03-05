@@ -59,6 +59,18 @@ const BOT_REPLIES = {
   ],
 };
 
+// Suggestions rapides affichées au-dessus du champ de saisie
+const SUGGESTIONS = [
+  { id: 's1', emoji: '👋', label: 'Salut Alex !', text: 'Salut Alex !' },
+  { id: 's2', emoji: '💪', label: 'Conseil muscu', text: 'Tu as un conseil pour la musculation ?' },
+  { id: 's3', emoji: '🍎', label: 'Nutrition', text: 'Comment gérer mes calories ?' },
+  { id: 's4', emoji: '🏃', label: 'Cardio', text: 'Combien de séances de sport par semaine ?' },
+  { id: 's5', emoji: '😅', label: 'Motivation', text: 'J\'ai du mal à rester motivé...' },
+  { id: 's6', emoji: '🛌', label: 'Récupération', text: 'Comment optimiser ma récupération ?' },
+  { id: 's7', emoji: '🙏', label: 'Merci Alex', text: 'Merci Alex !' },
+];
+
+
 const getBotReply = (userMessage, type = 'text') => {
   if (type === 'workout') {
     const replies = BOT_REPLIES.workout;
@@ -358,6 +370,30 @@ export default function ChatScreen() {
         </View>
       )}
 
+      {/* Suggestions rapides (bot uniquement) */}
+      {friend?.isBot && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.suggestionsRow}
+          keyboardShouldPersistTaps="handled"
+        >
+          {SUGGESTIONS.map((s) => (
+            <TouchableOpacity
+              key={s.id}
+              style={styles.suggestionChip}
+              onPress={() => {
+                setMessageText(s.text);
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.suggestionEmoji}>{s.emoji}</Text>
+              <Text style={styles.suggestionLabel}>{s.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
       {/* Zone de saisie */}
       <View style={styles.inputContainer}>
         {/* Bouton envoyer un workout */}
@@ -546,6 +582,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sendBtnDisabled: { backgroundColor: colors.border },
+
+  // Suggestions rapides
+  suggestionsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  suggestionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.primary + '60',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  suggestionEmoji: { fontSize: 14 },
+  suggestionLabel: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
 
   emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40, marginTop: 40 },
   emptyText: { fontSize: 15, color: colors.textSecondary, textAlign: 'center', marginTop: 8 },
