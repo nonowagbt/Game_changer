@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,199 +11,165 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
-import { getCurrentUser, getUserByUsername, getUserByEmail, searchUsers } from '../utils/auth';
+import { getFriends, addFriend, removeFriend, BOT_FRIEND } from '../utils/db';
 
 export default function FriendsScreen() {
+  const navigation = useNavigation();
   const [friends, setFriends] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddFriend, setShowAddFriend] = useState(false);
-  const [friendSearch, setFriendSearch] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [friendInput, setFriendInput] = useState('');
+  const [isAdding, setIsAdding] = useState(false);
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
 
-  useEffect(() => {
-    loadFriends();
-  }, []);
+  // Charger la liste d'amis à chaque fois que l'écran prend le focus
+  useFocusEffect(
+    useCallback(() => {
+      loadFriends();
+    }, [])
+  );
 
   const loadFriends = async () => {
-    // TODO: Charger les amis depuis la base de données
-    // Pour l'instant, on utilise des données de test
-    setFriends([]);
+    const list = await getFriends();
+    setFriends(list);
   };
 
-  const handleSearchFriend = async () => {
-    if (!friendSearch.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un username, un email ou un nom');
+  // Ajouter un ami par nom, pseudo ou email (simulation locale)
+  const handleAddFriend = async () => {
+    const input = friendInput.trim();
+    if (!input) {
+      Alert.alert('Champ vide', 'Veuillez entrer un nom, pseudo ou email.');
       return;
     }
-
-    setIsSearching(true);
+    setIsAdding(true);
     try {
-      const currentUser = await getCurrentUser();
-      const searchTerm = friendSearch.trim();
-      
-      // Utiliser la nouvelle fonction de recherche qui permet la recherche partielle
-      const foundUsers = await searchUsers(searchTerm);
+      // Simuler une "recherche" : on crée un ami avec les infos saisies
+      const isEmail = input.includes('@');
+      const newFriend = {
+        id: `friend_${Date.now()}`,
+        name: isEmail ? input.split('@')[0] : input,
+        username: isEmail ? null : input.toLowerCase().replace(/\s+/g, '_'),
+        email: isEmail ? input : null,
+        isBot: false,
+        avatar: null,
+        status: 'Hors ligne',
+      };
 
-      if (!foundUsers || foundUsers.length === 0) {
-        Alert.alert('Utilisateur non trouvé', 'Aucun utilisateur trouvé avec ce critère de recherche');
-        setSearchResults([]);
-        return;
-      }
-
-      // Filtrer les résultats pour exclure l'utilisateur actuel et les amis existants
-      const filteredUsers = foundUsers
-        .filter(user => {
-          // Exclure l'utilisateur actuel
-          if (currentUser && (currentUser.id === user.id || currentUser.email === user.email)) {
-            return false;
-          }
-          // Exclure les amis déjà ajoutés
-          return !friends.some(f => f.id === user.id);
-        })
-        .map(user => ({
-          id: user.id,
-          name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email,
-          email: user.email,
-          username: user.username,
-        }));
-
-      if (filteredUsers.length === 0) {
-        if (foundUsers.some(u => currentUser && (currentUser.id === u.id || currentUser.email === u.email))) {
-          Alert.alert('Erreur', 'Vous ne pouvez pas vous ajouter vous-même');
-        } else {
-          Alert.alert('Information', 'Tous les utilisateurs trouvés sont déjà dans votre liste d\'amis');
-        }
-        setSearchResults([]);
-        return;
-      }
-
-      // Afficher les résultats de recherche
-      setSearchResults(filteredUsers);
-    } catch (error) {
-      console.error('Error searching for friend:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue lors de la recherche');
-      setSearchResults([]);
+      const updated = await addFriend(newFriend);
+      setFriends(updated);
+      setFriendInput('');
+      setShowAddFriend(false);
+      Alert.alert('✅ Ami ajouté', `${newFriend.name} a été ajouté à votre liste d'amis !`);
+    } catch (e) {
+      Alert.alert('Erreur', "Impossible d'ajouter cet ami.");
     } finally {
-      setIsSearching(false);
+      setIsAdding(false);
     }
   };
 
-  const handleAddFriend = async (user) => {
-    // TODO: Implémenter l'ajout d'ami (envoyer une demande, etc.)
-    // Pour l'instant, on ajoute directement à la liste locale
-    const newFriend = {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      username: user.username,
-    };
-    
-    setFriends([...friends, newFriend]);
-    setSearchResults([]);
-    setFriendSearch('');
-    setShowAddFriend(false);
-    Alert.alert('Succès', `${user.name || user.username || user.email} a été ajouté à vos amis`);
+  const handleRemoveFriend = (friend) => {
+    if (friend.isBot) {
+      Alert.alert('Impossible', 'Vous ne pouvez pas supprimer Alex Martin de vos amis.');
+      return;
+    }
+    Alert.alert(
+      'Supprimer l\'ami',
+      `Voulez-vous retirer ${friend.name} de vos amis ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            const updated = await removeFriend(friend.id);
+            if (updated) setFriends(updated);
+          },
+        },
+      ]
+    );
   };
 
-  const filteredFriends = friends.filter((friend) =>
-    friend.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    friend.username?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredFriends = friends.filter((f) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      f.name?.toLowerCase().includes(q) ||
+      f.email?.toLowerCase().includes(q) ||
+      f.username?.toLowerCase().includes(q)
+    );
+  });
+
+  const renderFriendCard = ({ item }) => (
+    <View style={styles.friendCard}>
+      {/* Avatar */}
+      <View style={[styles.friendAvatar, item.isBot && styles.botAvatar]}>
+        {item.isBot ? (
+          <Text style={styles.avatarEmoji}>{item.avatar}</Text>
+        ) : (
+          <Ionicons name="person" size={26} color={colors.primary} />
+        )}
+      </View>
+
+      {/* Infos */}
+      <View style={styles.friendInfo}>
+        <View style={styles.friendNameRow}>
+          <Text style={styles.friendName}>{item.name}</Text>
+          {item.isBot && (
+            <View style={styles.botBadge}>
+              <Text style={styles.botBadgeText}>IA</Text>
+            </View>
+          )}
+        </View>
+        {item.username && (
+          <Text style={styles.friendUsername}>@{item.username}</Text>
+        )}
+        {item.email && !item.isBot && (
+          <Text style={styles.friendEmail}>{item.email}</Text>
+        )}
+        <View style={styles.statusRow}>
+          <View style={[styles.statusDot, item.status === 'En ligne' ? styles.statusOnline : styles.statusOffline]} />
+          <Text style={styles.statusText}>{item.status || 'Hors ligne'}</Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.friendActions}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => navigation.navigate('Chat', { friend: item })}
+        >
+          <Ionicons name="chatbubble" size={20} color={colors.primary} />
+        </TouchableOpacity>
+        {!item.isBot && (
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => handleRemoveFriend(item)}
+          >
+            <Ionicons name="person-remove-outline" size={20} color={colors.textTertiary} />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mes Amis</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setShowAddFriend(true)}
-        >
+        <View>
+          <Text style={styles.headerTitle}>Mes Amis</Text>
+          <Text style={styles.headerSub}>{friends.length} ami{friends.length > 1 ? 's' : ''}</Text>
+        </View>
+        <TouchableOpacity style={styles.addIconBtn} onPress={() => setShowAddFriend(true)}>
           <Ionicons name="person-add" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {showAddFriend && (
-        <View style={styles.addFriendCard}>
-          <Text style={styles.addFriendTitle}>Rechercher un ami</Text>
-          <Text style={styles.addFriendSubtitle}>Recherchez par username, email, prénom ou nom</Text>
-          <View style={styles.searchInputContainer}>
-            <Ionicons name="at" size={20} color={colors.textSecondary} style={styles.searchInputIcon} />
-            <TextInput
-              style={styles.input}
-              value={friendSearch}
-              onChangeText={setFriendSearch}
-              placeholder="Username, email, prénom ou nom"
-              placeholderTextColor={colors.textTertiary}
-              autoCapitalize="none"
-              onSubmitEditing={handleSearchFriend}
-            />
-          </View>
-          <View style={styles.addFriendActions}>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => {
-                setShowAddFriend(false);
-                setFriendSearch('');
-                setSearchResults([]);
-              }}
-            >
-              <Text style={styles.cancelButtonText}>Annuler</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.searchButton, isSearching && styles.buttonDisabled]}
-              onPress={handleSearchFriend}
-              disabled={isSearching}
-            >
-              {isSearching ? (
-                <Text style={styles.searchButtonText}>Recherche...</Text>
-              ) : (
-                <>
-                  <Ionicons name="search" size={18} color={colors.cardBackground} />
-                  <Text style={styles.searchButtonText}>Rechercher</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {searchResults.length > 0 && (
-            <View style={styles.searchResultsContainer}>
-              <Text style={styles.searchResultsTitle}>
-                {searchResults.length === 1 ? 'Résultat trouvé :' : `${searchResults.length} résultats trouvés :`}
-              </Text>
-              {searchResults.map((user) => (
-                <View key={user.id} style={styles.searchResultCard}>
-                  <View style={styles.friendAvatar}>
-                    <Ionicons name="person" size={24} color={colors.primary} />
-                  </View>
-                  <View style={styles.friendInfo}>
-                    <Text style={styles.friendName}>{user.name || user.email}</Text>
-                    {user.username && (
-                      <Text style={styles.friendUsername}>@{user.username}</Text>
-                    )}
-                    {user.email && user.name && (
-                      <Text style={styles.friendEmail}>{user.email}</Text>
-                    )}
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.button, styles.addButtonSmall]}
-                    onPress={() => handleAddFriend(user)}
-                  >
-                    <Ionicons name="person-add" size={18} color={colors.cardBackground} />
-                    <Text style={styles.addButtonSmallText}>Ajouter</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-      )}
-
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+      {/* Barre de recherche */}
+      <View style={styles.searchBar}>
+        <Ionicons name="search" size={18} color={colors.textSecondary} />
         <TextInput
           style={styles.searchInput}
           value={searchQuery}
@@ -212,33 +178,28 @@ export default function FriendsScreen() {
           placeholderTextColor={colors.textTertiary}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            style={styles.clearButton}
-          >
-            <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Liste d'amis */}
       {filteredFriends.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="people-outline" size={80} color={colors.textTertiary} />
+          <Ionicons name="people-outline" size={70} color={colors.textTertiary} />
           <Text style={styles.emptyTitle}>
             {searchQuery ? 'Aucun ami trouvé' : 'Aucun ami pour le moment'}
           </Text>
           <Text style={styles.emptySubtitle}>
             {searchQuery
-              ? 'Essayez avec un autre nom, username ou email'
-              : 'Ajoutez vos amis pour suivre leurs progrès et partager vos entraînements'}
+              ? 'Essayez avec un autre critère'
+              : 'Ajoutez vos amis pour partager vos programmes !'}
           </Text>
           {!searchQuery && (
-            <TouchableOpacity
-              style={styles.emptyButton}
-              onPress={() => setShowAddFriend(true)}
-            >
-              <Ionicons name="person-add" size={20} color={colors.cardBackground} />
-              <Text style={styles.emptyButtonText}>Ajouter un ami</Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowAddFriend(true)}>
+              <Ionicons name="person-add" size={18} color={colors.cardBackground} />
+              <Text style={styles.emptyBtnText}>Ajouter un ami</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -246,105 +207,128 @@ export default function FriendsScreen() {
         <FlatList
           data={filteredFriends}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.friendCard}>
-              <View style={styles.friendAvatar}>
-                <Ionicons name="person" size={30} color={colors.primary} />
-              </View>
-              <View style={styles.friendInfo}>
-                <Text style={styles.friendName}>{item.name || item.email}</Text>
-                {item.username && (
-                  <Text style={styles.friendUsername}>@{item.username}</Text>
-                )}
-                {item.name && item.email && (
-                  <Text style={styles.friendEmail}>{item.email}</Text>
-                )}
-              </View>
-              <TouchableOpacity 
-                style={styles.friendAction}
-                onPress={() => navigation.navigate('Chat', { friend: item })}
-              >
-                <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          )}
-          contentContainerStyle={styles.friendsList}
+          renderItem={renderFriendCard}
+          contentContainerStyle={styles.list}
         />
       )}
 
-      {/* Bouton flottant pour démarrer une nouvelle conversation */}
+      {/* FAB message */}
       {friends.length > 0 && (
         <TouchableOpacity
           style={styles.fab}
           onPress={() => {
-            // Ouvrir un modal pour sélectionner un ami avec qui démarrer une conversation
             if (friends.length === 1) {
-              // Si un seul ami, ouvrir directement la conversation
               navigation.navigate('Chat', { friend: friends[0] });
             } else {
-              // Sinon, ouvrir un modal de sélection
               setShowNewMessageModal(true);
             }
           }}
         >
-          <Ionicons name="chatbubble" size={28} color={colors.cardBackground} />
+          <Ionicons name="chatbubble" size={26} color={colors.cardBackground} />
         </TouchableOpacity>
       )}
 
-      {/* Modal de sélection d'ami pour nouvelle conversation */}
-      {showNewMessageModal && (
-        <Modal
-          visible={showNewMessageModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowNewMessageModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Nouveau message</Text>
-                <TouchableOpacity onPress={() => setShowNewMessageModal(false)}>
-                  <Ionicons name="close" size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.modalSubtitle}>Sélectionnez un ami</Text>
-              <FlatList
-                data={friends}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalFriendItem}
-                    onPress={() => {
-                      setShowNewMessageModal(false);
-                      navigation.navigate('Chat', { friend: item });
-                    }}
-                  >
-                    <View style={styles.modalFriendAvatar}>
-                      <Ionicons name="person" size={24} color={colors.primary} />
-                    </View>
-                    <View style={styles.modalFriendInfo}>
-                      <Text style={styles.modalFriendName}>{item.name || item.email}</Text>
-                      {item.username && (
-                        <Text style={styles.modalFriendUsername}>@{item.username}</Text>
-                      )}
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                  </TouchableOpacity>
-                )}
+      {/* Modal : ajouter un ami */}
+      <Modal
+        visible={showAddFriend}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAddFriend(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Ajouter un ami</Text>
+              <TouchableOpacity onPress={() => { setShowAddFriend(false); setFriendInput(''); }}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>Par nom, pseudo ou adresse email</Text>
+
+            <View style={styles.inputRow}>
+              <Ionicons name="person-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.modalInput}
+                value={friendInput}
+                onChangeText={setFriendInput}
+                placeholder="Ex : thomas, @tom_fit, tom@mail.com"
+                placeholderTextColor={colors.textTertiary}
+                autoCapitalize="none"
+                autoFocus
+                onSubmitEditing={handleAddFriend}
               />
             </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnSecondary]}
+                onPress={() => { setShowAddFriend(false); setFriendInput(''); }}
+              >
+                <Text style={styles.modalBtnSecondaryText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary, isAdding && { opacity: 0.6 }]}
+                onPress={handleAddFriend}
+                disabled={isAdding}
+              >
+                <Ionicons name="person-add" size={16} color={colors.cardBackground} />
+                <Text style={styles.modalBtnPrimaryText}>{isAdding ? 'Ajout...' : 'Ajouter'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Modal>
-      )}
+        </View>
+      </Modal>
+
+      {/* Modal : choisir avec qui démarrer une conversation */}
+      <Modal
+        visible={showNewMessageModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowNewMessageModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '70%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Nouveau message</Text>
+              <TouchableOpacity onPress={() => setShowNewMessageModal(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>Sélectionnez un ami</Text>
+            <FlatList
+              data={friends}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.modalFriendRow}
+                  onPress={() => {
+                    setShowNewMessageModal(false);
+                    navigation.navigate('Chat', { friend: item });
+                  }}
+                >
+                  <View style={[styles.friendAvatarSm, item.isBot && styles.botAvatarSm]}>
+                    {item.isBot
+                      ? <Text style={{ fontSize: 20 }}>{item.avatar}</Text>
+                      : <Ionicons name="person" size={20} color={colors.primary} />
+                    }
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.friendName}>{item.name}</Text>
+                    {item.username && <Text style={styles.friendUsername}>@{item.username}</Text>}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -355,139 +339,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  addButton: {
-    padding: 8,
-  },
-  addFriendCard: {
-    backgroundColor: colors.cardBackground,
-    margin: 15,
-    padding: 20,
-    borderRadius: 15,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  addFriendTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 15,
-  },
-  input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: 15,
-  },
-  addFriendActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  button: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  cancelButton: {
-    backgroundColor: colors.buttonSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cancelButtonText: {
-    color: colors.buttonSecondaryText,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  addButton: {
-    backgroundColor: colors.primary,
-  },
-  addButtonText: {
-    color: colors.cardBackground,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  searchContainer: {
+  headerTitle: { fontSize: 28, fontWeight: 'bold', color: colors.text },
+  headerSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+  addIconBtn: { padding: 8 },
+
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
     margin: 15,
-    marginBottom: 10,
     paddingHorizontal: 15,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    padding: 15,
-    fontSize: 16,
-    color: colors.text,
-  },
-  clearButton: {
-    padding: 5,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 10,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.primary,
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 30,
   },
-  emptyButtonText: {
-    color: colors.cardBackground,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  friendsList: {
-    padding: 15,
-  },
+  searchInput: { flex: 1, paddingVertical: 14, fontSize: 15, color: colors.text },
+
+  list: { padding: 15 },
   friendCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.cardBackground,
-    padding: 15,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 14,
     marginBottom: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.primary,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 12,
   },
   friendAvatar: {
     width: 50,
@@ -496,177 +375,110 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary + '20',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 15,
   },
-  friendInfo: {
-    flex: 1,
-  },
-  friendName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  friendEmail: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  friendAction: {
-    padding: 5,
-  },
-  addFriendSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 15,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
+  botAvatar: { backgroundColor: colors.primary + '30' },
+  avatarEmoji: { fontSize: 26 },
+  friendAvatarSm: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary + '20',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 15,
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  searchInputIcon: {
-    marginRight: 10,
-  },
-  searchButton: {
+  botAvatarSm: { backgroundColor: colors.primary + '30' },
+
+  friendInfo: { flex: 1 },
+  friendNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  friendName: { fontSize: 15, fontWeight: '700', color: colors.text },
+  botBadge: { backgroundColor: colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  botBadgeText: { fontSize: 10, fontWeight: 'bold', color: colors.cardBackground },
+  friendUsername: { fontSize: 13, color: colors.primary, fontWeight: '500', marginBottom: 2 },
+  friendEmail: { fontSize: 12, color: colors.textSecondary },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 3 },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusOnline: { backgroundColor: '#4CAF50' },
+  statusOffline: { backgroundColor: colors.textTertiary },
+  statusText: { fontSize: 11, color: colors.textSecondary },
+
+  friendActions: { flexDirection: 'row', gap: 4 },
+  actionBtn: { padding: 8, borderRadius: 20 },
+
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 },
+  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text, marginTop: 20, textAlign: 'center' },
+  emptySubtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: colors.primary,
-  },
-  searchButtonText: {
-    color: colors.cardBackground,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  searchResultsContainer: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  searchResultsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 15,
-  },
-  searchResultCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundSecondary,
     padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 12,
+    marginTop: 25,
   },
-  addButtonSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: colors.primary,
-  },
-  addButtonSmallText: {
-    color: colors.cardBackground,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  friendUsername: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
+  emptyBtnText: { color: colors.cardBackground, fontSize: 15, fontWeight: 'bold' },
+
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    bottom: 25,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 5,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
+
+  // Modals
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  modalBox: {
     backgroundColor: colors.cardBackground,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
+    paddingBottom: 34,
   },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 20,
-  },
-  modalFriendItem: {
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+  modalSub: { fontSize: 13, color: colors.textSecondary, marginBottom: 20 },
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 10,
-    marginBottom: 10,
+    backgroundColor: colors.background,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 20,
   },
-  modalFriendAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.primary + '20',
+  modalInput: { flex: 1, fontSize: 15, color: colors.text, paddingVertical: 12 },
+  modalActions: { flexDirection: 'row', gap: 10 },
+  modalBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 15,
+    gap: 6,
+    padding: 15,
+    borderRadius: 12,
   },
-  modalFriendInfo: {
-    flex: 1,
-  },
-  modalFriendName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  modalFriendUsername: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '500',
+  modalBtnSecondary: { backgroundColor: colors.buttonSecondary, borderWidth: 1, borderColor: colors.border },
+  modalBtnSecondaryText: { color: colors.buttonSecondaryText, fontWeight: '600', fontSize: 15 },
+  modalBtnPrimary: { backgroundColor: colors.primary },
+  modalBtnPrimaryText: { color: colors.cardBackground, fontWeight: 'bold', fontSize: 15 },
+  modalFriendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
 });
-
-

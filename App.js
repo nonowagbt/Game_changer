@@ -17,6 +17,8 @@ import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import { getCurrentUser } from './utils/auth';
 import { colors } from './theme/colors';
+import { ThemeProvider } from './contexts/ThemeContext';
+import { requestNotificationPermission, scheduleGoalReminderNotification } from './utils/notifications';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -32,8 +34,8 @@ function InfoStack({ refreshAuth }) {
       <Stack.Screen name="InfoMain">
         {(props) => <InfoScreen {...props} refreshAuth={refreshAuth} />}
       </Stack.Screen>
-      <Stack.Screen 
-        name="Settings" 
+      <Stack.Screen
+        name="Settings"
         options={{
           headerShown: false,
         }}
@@ -55,8 +57,8 @@ function FriendsStack({ refreshAuth }) {
       <Stack.Screen name="FriendsMain">
         {(props) => <FriendsScreen {...props} refreshAuth={refreshAuth} />}
       </Stack.Screen>
-      <Stack.Screen 
-        name="Chat" 
+      <Stack.Screen
+        name="Chat"
         options={{
           headerShown: false,
         }}
@@ -81,19 +83,26 @@ function AuthScreen({ onAuthChange }) {
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authKey, setAuthKey] = useState(0); // Clé pour forcer le rafraîchissement
+  const [authKey, setAuthKey] = useState(0);
 
   useEffect(() => {
     checkAuth();
+    // Initialiser les notifications au démarrage
+    (async () => {
+      try {
+        const granted = await requestNotificationPermission();
+        if (granted) await scheduleGoalReminderNotification();
+      } catch (_) { }
+    })();
   }, [authKey]);
 
   const checkAuth = async () => {
     try {
       // Timeout de 3 secondes pour éviter que l'app reste bloquée
-      const timeoutPromise = new Promise((_, reject) => 
+      const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Auth timeout')), 3000)
       );
-      
+
       const userPromise = getCurrentUser();
       const user = await Promise.race([userPromise, timeoutPromise]);
       setIsAuthenticated(!!user);
@@ -119,14 +128,16 @@ export default function App() {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar style="light" />
-      {isAuthenticated ? (
-        <MainTabs refreshAuth={refreshAuth} />
-      ) : (
-        <AuthScreen onAuthChange={refreshAuth} />
-      )}
-    </NavigationContainer>
+    <ThemeProvider>
+      <NavigationContainer>
+        <StatusBar style="auto" />
+        {isAuthenticated ? (
+          <MainTabs refreshAuth={refreshAuth} />
+        ) : (
+          <AuthScreen onAuthChange={refreshAuth} />
+        )}
+      </NavigationContainer>
+    </ThemeProvider>
   );
 }
 
@@ -165,14 +176,14 @@ function MainTabs({ refreshAuth }) {
       color: colors.text,
     },
   });
-  
+
   return (
     <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Accueil" component={HomeScreen} />
       <Tab.Screen name="Entraînements" component={WorkoutScreen} />
       <Tab.Screen name="Scanner" component={ScannerScreen} />
-      <Tab.Screen 
-        name="Amis" 
+      <Tab.Screen
+        name="Amis"
         options={{ headerShown: false }}
       >
         {(props) => <FriendsStack {...props} refreshAuth={refreshAuth} />}

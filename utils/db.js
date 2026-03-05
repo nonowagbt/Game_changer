@@ -27,7 +27,7 @@ const mongoRequest = async (action, collection, filter = {}, additionalData = {}
   try {
     const userId = await getUserId();
     const url = `${mongodbConfig.apiUrl}/action/${action}`;
-    
+
     const requestBody = {
       dataSource: mongodbConfig.clusterName,
       database: mongodbConfig.databaseName,
@@ -35,7 +35,7 @@ const mongoRequest = async (action, collection, filter = {}, additionalData = {}
       filter: { userId, ...filter },
       ...additionalData,
     };
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -67,6 +67,19 @@ const STORAGE_KEYS = {
   MESSAGES: 'messages',
   WEEKLY_GOALS: 'weekly_goals',
   GYM_ATTENDANCE: 'gym_attendance',
+  FRIENDS: 'friends',
+  BLOCKED_USERS: 'blocked_users',
+};
+
+// Ami fictif pré-intégré dans l'application
+export const BOT_FRIEND = {
+  id: 'bot_alex',
+  name: 'Alex Martin',
+  username: 'alex_fit',
+  email: 'alex.martin@gamechangerapp.com',
+  isBot: true,
+  avatar: '💪',
+  status: 'En ligne',
 };
 
 // Daily Goals
@@ -177,14 +190,14 @@ export const updateDailyProgress = async (progress) => {
   try {
     const userId = await getUserId();
     const today = new Date().toISOString().split('T')[0];
-    
+
     // Récupérer les valeurs existantes pour les fusionner
     const existing = await getDailyProgress();
     const mergedProgress = {
       water: progress.water !== undefined ? progress.water : existing.water || 0,
       calories: progress.calories !== undefined ? progress.calories : existing.calories || 0,
     };
-    
+
     await mongoRequest('updateOne', 'dailyProgress', { date: today }, {
       update: {
         $set: {
@@ -245,10 +258,10 @@ export const saveWorkouts = async (workouts) => {
 
   try {
     const userId = await getUserId();
-    
+
     // Supprimer tous les workouts existants pour cet utilisateur
     await mongoRequest('deleteMany', 'workouts', {});
-    
+
     // Insérer les nouveaux workouts
     if (workouts.length > 0) {
       const workoutsWithUserId = workouts.map(workout => ({
@@ -257,7 +270,7 @@ export const saveWorkouts = async (workouts) => {
         createdAt: workout.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }));
-      
+
       await mongoRequest('insertMany', 'workouts', {}, {
         documents: workoutsWithUserId,
       });
@@ -433,28 +446,28 @@ export const calculateStreaks = async () => {
   const allProgress = await getAllDailyProgress();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   // Initialiser les streaks
   let gymStreak = 0;
   let eatingStreak = 0;
   let drinkingStreak = 0;
-  
+
   // Obtenir les objectifs pour vérifier si les objectifs sont atteints
   const goals = await getDailyGoals();
-  
+
   // Obtenir les workouts pour vérifier la présence de séances
   const workouts = await getWorkouts();
-  
+
   // Parcourir les jours en arrière depuis aujourd'hui
   for (let i = 0; i < 365; i++) {
     const checkDate = new Date(today);
     checkDate.setDate(checkDate.getDate() - i);
     const dateKey = checkDate.toISOString().split('T')[0];
     const dateKeyString = checkDate.toDateString();
-    
+
     // Vérifier dans les deux formats (ISO et DateString)
     const progress = allProgress[dateKey] || allProgress[dateKeyString];
-    
+
     // Vérifier le streak de gym (salle)
     if (i === 0 || gymStreak > 0) {
       // Vérifier la présence à la salle via markGymAttendance
@@ -473,7 +486,7 @@ export const calculateStreaks = async () => {
           return workoutDate.getTime() === checkDate.getTime();
         });
       }
-      
+
       if (hasGymAttendance) {
         gymStreak++;
       } else if (i > 0) {
@@ -483,7 +496,7 @@ export const calculateStreaks = async () => {
       // Si i === 0 (aujourd'hui) et pas de présence, on ne fait rien
       // Le streak reste à 0 ou continue selon les jours précédents
     }
-    
+
     // Vérifier le streak de manger (calories)
     if (i === 0 || eatingStreak > 0) {
       if (progress && progress.calories >= goals.calories * 0.8) {
@@ -496,7 +509,7 @@ export const calculateStreaks = async () => {
       // Si i === 0 (aujourd'hui) et objectif pas atteint, on ne fait rien
       // Le streak reste à 0 ou continue selon les jours précédents
     }
-    
+
     // Vérifier le streak de boire (eau)
     if (i === 0 || drinkingStreak > 0) {
       if (progress && progress.water >= goals.water * 0.8) {
@@ -510,7 +523,7 @@ export const calculateStreaks = async () => {
       // Le streak reste à 0 ou continue selon les jours précédents
     }
   }
-  
+
   return {
     gym: gymStreak,
     eating: eatingStreak,
@@ -527,7 +540,7 @@ export const getMessages = async (userId1, userId2) => {
       const allMessages = data ? JSON.parse(data) : [];
       // Filtrer les messages entre les deux utilisateurs
       return allMessages.filter(
-        msg => 
+        msg =>
           (msg.senderId === userId1 && msg.receiverId === userId2) ||
           (msg.senderId === userId2 && msg.receiverId === userId1)
       ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -554,7 +567,7 @@ export const getMessages = async (userId1, userId2) => {
     const data = await AsyncStorage.getItem(STORAGE_KEYS.MESSAGES);
     const allMessages = data ? JSON.parse(data) : [];
     return allMessages.filter(
-      msg => 
+      msg =>
         (msg.senderId === userId1 && msg.receiverId === userId2) ||
         (msg.senderId === userId2 && msg.receiverId === userId1)
     ).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -596,6 +609,78 @@ export const sendMessage = async (message) => {
 export const sendWorkoutMessage = async (message) => {
   // Utilise la même fonction que sendMessage mais avec type 'workout'
   return sendMessage(message);
+};
+
+// Gestion des amis (stockage local AsyncStorage)
+export const getFriends = async () => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.FRIENDS);
+    const friends = data ? JSON.parse(data) : [];
+    // Toujours s'assurer que l'ami bot est présent
+    const hasBotFriend = friends.some(f => f.id === BOT_FRIEND.id);
+    if (!hasBotFriend) {
+      const withBot = [BOT_FRIEND, ...friends];
+      await AsyncStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(withBot));
+      return withBot;
+    }
+    return friends;
+  } catch (error) {
+    console.error('Error getting friends:', error);
+    return [BOT_FRIEND];
+  }
+};
+
+export const saveFriends = async (friends) => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.FRIENDS, JSON.stringify(friends));
+  } catch (error) {
+    console.error('Error saving friends:', error);
+  }
+};
+
+export const addFriend = async (friend) => {
+  const friends = await getFriends();
+  const alreadyAdded = friends.some(f => f.id === friend.id || f.email === friend.email);
+  if (alreadyAdded) return friends;
+  const updated = [...friends, friend];
+  await saveFriends(updated);
+  return updated;
+};
+
+export const removeFriend = async (friendId) => {
+  // On ne peut pas supprimer l'ami bot
+  if (friendId === BOT_FRIEND.id) return;
+  const friends = await getFriends();
+  const updated = friends.filter(f => f.id !== friendId);
+  await saveFriends(updated);
+  return updated;
+};
+
+// ─── Utilisateurs bloqués ─────────────────────────────────────
+export const getBlockedUsers = async () => {
+  try {
+    const data = await AsyncStorage.getItem(STORAGE_KEYS.BLOCKED_USERS);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Error getting blocked users:', error);
+    return [];
+  }
+};
+
+export const blockUser = async (user) => {
+  const blocked = await getBlockedUsers();
+  const alreadyBlocked = blocked.some(u => u.id === user.id);
+  if (alreadyBlocked) return blocked;
+  const updated = [...blocked, { ...user, blockedAt: new Date().toISOString() }];
+  await AsyncStorage.setItem(STORAGE_KEYS.BLOCKED_USERS, JSON.stringify(updated));
+  return updated;
+};
+
+export const unblockUser = async (userId) => {
+  const blocked = await getBlockedUsers();
+  const updated = blocked.filter(u => u.id !== userId);
+  await AsyncStorage.setItem(STORAGE_KEYS.BLOCKED_USERS, JSON.stringify(updated));
+  return updated;
 };
 
 // Obtenir le début de la semaine (lundi)
@@ -668,7 +753,7 @@ export const saveWeeklyGoal = async (goal, weekStart) => {
 // Marquer la présence à la salle pour un jour donné
 export const markGymAttendance = async (date, attended) => {
   const dateKey = date instanceof Date ? date.toISOString().split('T')[0] : date;
-  
+
   if (!mongoConfigured) {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
@@ -722,7 +807,7 @@ export const getGymAttendanceForWeek = async (weekStart) => {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.GYM_ATTENDANCE);
       const attendance = data ? JSON.parse(data) : {};
       const weekStartDate = new Date(weekStart);
-      
+
       const weekAttendance = {};
       for (let i = 0; i < 7; i++) {
         const date = new Date(weekStartDate);
@@ -740,21 +825,21 @@ export const getGymAttendanceForWeek = async (weekStart) => {
     const weekStartDate = new Date(weekStart);
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekEndDate.getDate() + 6);
-    
+
     const result = await mongoRequest('find', 'gymAttendance', {
       date: {
         $gte: weekStart,
         $lte: weekEndDate.toISOString().split('T')[0],
       },
     });
-    
+
     const attendance = {};
     if (result.documents) {
       result.documents.forEach(doc => {
         attendance[doc.date] = true;
       });
     }
-    
+
     // Remplir les jours manquants avec false
     for (let i = 0; i < 7; i++) {
       const date = new Date(weekStartDate);
@@ -764,7 +849,7 @@ export const getGymAttendanceForWeek = async (weekStart) => {
         attendance[dateKey] = false;
       }
     }
-    
+
     return attendance;
   } catch (error) {
     console.error('Error getting gym attendance:', error);

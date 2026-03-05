@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getWorkouts, saveWorkouts } from '../utils/db';
 import { colors } from '../theme/colors';
 import ExerciseImagePicker from '../components/ExerciseImagePicker';
+import RunningTrackerScreen from './RunningTrackerScreen';
 
 export default function WorkoutScreen() {
   const styles = StyleSheet.create({
@@ -436,7 +437,8 @@ export default function WorkoutScreen() {
       color: colors.primary,
     },
   });
-  
+
+  const [workoutTab, setWorkoutTab] = useState('programmes'); // 'programmes' | 'running'
   const [workouts, setWorkouts] = useState([]);
   const [workoutModalVisible, setWorkoutModalVisible] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState(null);
@@ -593,7 +595,7 @@ export default function WorkoutScreen() {
       const defaultReps = parseInt(exerciseForm.defaultReps) || 0;
       const defaultWeight = parseFloat(exerciseForm.defaultWeight) || 0;
       const defaultRestTime = parseInt(exerciseForm.defaultRestTime) || 0;
-      
+
       finalSeries = [];
       for (let i = 0; i < numSets; i++) {
         if (series[i]) {
@@ -706,17 +708,17 @@ export default function WorkoutScreen() {
         exercise.series.forEach((serie, serieIndex) => {
           const reps = parseInt(serie.reps) || 0;
           const restTime = parseInt(serie.restTime) || 0;
-          
+
           // Temps d'exécution de la série (répétitions × 3 secondes)
           totalSeconds += reps * TIME_PER_REP;
-          
+
           // Temps de repos après la série (sauf pour la dernière série de l'exercice)
           if (serieIndex < exercise.series.length - 1) {
             totalSeconds += restTime;
           }
         });
       }
-      
+
       // Temps de transition entre exercices (sauf pour le dernier exercice)
       if (exerciseIndex < workoutExercises.length - 1) {
         totalSeconds += TRANSITION_TIME;
@@ -729,15 +731,15 @@ export default function WorkoutScreen() {
   // Formater le temps en heures/minutes ou minutes/secondes
   const formatTime = (seconds) => {
     if (seconds === 0) return '0 min';
-    
+
     const totalMinutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
-    
+
     // Si plus d'une heure, afficher en heures et minutes
     if (totalMinutes >= 60) {
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
-      
+
       if (minutes === 0) {
         return `${hours}h`;
       } else {
@@ -758,24 +760,24 @@ export default function WorkoutScreen() {
   // Formater l'entraînement en texte pour le partage
   const formatWorkoutForShare = (workout) => {
     let text = `🏋️ ${workout.name}\n\n`;
-    
+
     const estimatedTime = calculateWorkoutTime(workout.exercises);
     if (estimatedTime > 0) {
       text += `⏱️ Temps estimé: ${formatTime(estimatedTime)}\n\n`;
     }
-    
+
     if (workout.exercises && workout.exercises.length > 0) {
       text += `📋 ${workout.exercises.length} exercice${workout.exercises.length > 1 ? 's' : ''}:\n\n`;
-      
+
       workout.exercises.forEach((exercise, index) => {
         text += `${index + 1}. ${exercise.name}\n`;
-        
+
         if (exercise.series && exercise.series.length > 0) {
           exercise.series.forEach((serie, serieIndex) => {
             const reps = serie.reps || '0';
             const weight = serie.weight || '0';
             const restTime = serie.restTime || '0';
-            
+
             text += `   Série ${serieIndex + 1}: ${reps} reps × ${weight} kg`;
             if (restTime > 0) {
               text += ` (repos: ${restTime}s)`;
@@ -788,10 +790,10 @@ export default function WorkoutScreen() {
     } else {
       text += 'Aucun exercice défini.\n';
     }
-    
+
     text += '\n---\n';
     text += 'Créé avec Game Changer';
-    
+
     return text;
   };
 
@@ -803,7 +805,7 @@ export default function WorkoutScreen() {
         message: workoutText,
         title: workout.name,
       });
-      
+
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
           // Partagé avec un type d'activité spécifique
@@ -842,54 +844,54 @@ export default function WorkoutScreen() {
               />
             )
           )}
-        <View style={styles.exerciseInfo}>
-          <View style={styles.exerciseHeader}>
-            <Text style={styles.exerciseName}>{item.name}</Text>
-            <View style={styles.exerciseActions}>
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleOpenExerciseForm(item);
-                }}
-                style={styles.iconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="create-outline" size={18} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleDeleteExercise(item.id);
-                }}
-                style={styles.iconButton}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="trash-outline" size={18} color={colors.error} />
-              </TouchableOpacity>
-            </View>
-          </View>
-          <View style={styles.exerciseDetails}>
-            <Text style={styles.exerciseDetailText}>
-              {item.series.length} série{item.series.length > 1 ? 's' : ''}
-            </Text>
-            {item.series.map((serie, idx) => (
-              <View key={idx} style={styles.serieRow}>
-                <Text style={styles.serieText}>
-                  Série {idx + 1}: {serie.reps} reps × {serie.weight} kg
-                  {serie.restTime > 0 && ` (repos: ${serie.restTime}s)`}
-                </Text>
+          <View style={styles.exerciseInfo}>
+            <View style={styles.exerciseHeader}>
+              <Text style={styles.exerciseName}>{item.name}</Text>
+              <View style={styles.exerciseActions}>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleOpenExerciseForm(item);
+                  }}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="create-outline" size={18} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleDeleteExercise(item.id);
+                  }}
+                  style={styles.iconButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={18} color={colors.error} />
+                </TouchableOpacity>
               </View>
-            ))}
+            </View>
+            <View style={styles.exerciseDetails}>
+              <Text style={styles.exerciseDetailText}>
+                {item.series.length} série{item.series.length > 1 ? 's' : ''}
+              </Text>
+              {item.series.map((serie, idx) => (
+                <View key={idx} style={styles.serieRow}>
+                  <Text style={styles.serieText}>
+                    Série {idx + 1}: {serie.reps} reps × {serie.weight} kg
+                    {serie.restTime > 0 && ` (repos: ${serie.restTime}s)`}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
         </View>
       </View>
-    </View>
     );
   };
 
   const renderWorkoutItem = ({ item }) => {
     const estimatedTime = calculateWorkoutTime(item.exercises);
-    
+
     return (
       <View style={styles.workoutCard}>
         <View style={styles.workoutHeader}>
@@ -942,29 +944,74 @@ export default function WorkoutScreen() {
 
   return (
     <View style={styles.container}>
-      {workouts.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="barbell-outline" size={80} color={colors.textTertiary} />
-          <Text style={styles.emptyText}>Aucun entraînement</Text>
-          <Text style={styles.emptySubtext}>
-            Créez votre premier entraînement !
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={workouts}
-          renderItem={renderWorkoutItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContainer}
-        />
-      )}
+      {/* ── Sélecteur d'onglets Programmes / Course ── */}
+      <View style={{
+        flexDirection: 'row',
+        backgroundColor: colors.cardBackground,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+        paddingTop: 50,
+      }}>
+        {[
+          { key: 'programmes', label: 'Programmes', icon: 'barbell-outline' },
+          { key: 'running', label: 'Course', icon: 'walk-outline' },
+        ].map(({ key, label, icon }) => (
+          <TouchableOpacity
+            key={key}
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              paddingVertical: 14,
+              borderBottomWidth: 2,
+              borderBottomColor: workoutTab === key ? colors.primary : 'transparent',
+            }}
+            onPress={() => setWorkoutTab(key)}
+          >
+            <Ionicons name={icon} size={18} color={workoutTab === key ? colors.primary : colors.textSecondary} />
+            <Text style={{
+              fontSize: 14,
+              fontWeight: '700',
+              color: workoutTab === key ? colors.primary : colors.textSecondary,
+            }}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => handleOpenWorkoutModal()}
-      >
-        <Ionicons name="add" size={30} color={colors.cardBackground} />
-      </TouchableOpacity>
+      {/* ── Contenu selon l'onglet ── */}
+      {workoutTab === 'running' ? (
+        <RunningTrackerScreen />
+      ) : (
+        <>
+          {workouts.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="barbell-outline" size={80} color={colors.textTertiary} />
+              <Text style={styles.emptyText}>Aucun entraînement</Text>
+              <Text style={styles.emptySubtext}>
+                Créez votre premier entraînement !
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={workouts}
+              renderItem={renderWorkoutItem}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContainer}
+            />
+          )}
+
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={() => handleOpenWorkoutModal()}
+          >
+            <Ionicons name="add" size={30} color={colors.cardBackground} />
+          </TouchableOpacity>
+        </>
+      )}
 
       {/* Workout Modal */}
       <Modal

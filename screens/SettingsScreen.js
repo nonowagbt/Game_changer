@@ -11,239 +11,35 @@ import {
   Platform,
   Modal,
   TextInput,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
+import { useTheme } from '../contexts/ThemeContext';
 import { signOut, getCurrentUser, changePassword, getNextPasswordChangeDate } from '../utils/auth';
-import { getUserInfo, getWorkouts, getDailyGoals, getDailyProgress } from '../utils/db';
+import { getUserInfo, getWorkouts, getDailyGoals, getDailyProgress, getBlockedUsers, unblockUser } from '../utils/db';
+import {
+  scheduleGoalReminderNotification,
+  cancelGoalNotifications,
+  requestNotificationPermission,
+  checkAndNotifyGoals,
+} from '../utils/notifications';
 
 const SETTINGS_STORAGE_KEY = 'app_settings';
 
 export default function SettingsScreen({ refreshAuth }) {
   const navigation = useNavigation();
-  
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 15,
-      paddingTop: 50,
-      paddingBottom: 15,
-      backgroundColor: colors.cardBackground,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    backButton: {
-      padding: 5,
-    },
-    headerTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.text,
-      flex: 1,
-      textAlign: 'center',
-    },
-    searchButton: {
-      width: 34,
-    },
-    scrollView: {
-      flex: 1,
-    },
-    section: {
-      paddingVertical: 10,
-    },
-    sectionTitle: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.textTertiary,
-      textTransform: 'uppercase',
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      letterSpacing: 0.5,
-    },
-    settingItem: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: 20,
-      paddingVertical: 15,
-      backgroundColor: colors.cardBackground,
-    },
-    settingItemLeft: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      flex: 1,
-    },
-    settingIcon: {
-      marginRight: 15,
-      width: 24,
-    },
-    settingTextContainer: {
-      flex: 1,
-    },
-    settingTitle: {
-      fontSize: 16,
-      color: colors.text,
-      fontWeight: '400',
-    },
-    settingSubtitle: {
-      fontSize: 13,
-      color: colors.textSecondary,
-      marginTop: 4,
-      lineHeight: 18,
-    },
-    divider: {
-      height: 1,
-      backgroundColor: colors.border,
-      marginVertical: 0,
-    },
-    logoutSection: {
-      paddingTop: 20,
-      paddingBottom: 10,
-    },
-    logoutButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingVertical: 15,
-      marginHorizontal: 20,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.error + '40',
-      backgroundColor: colors.error + '10',
-    },
-    logoutButtonText: {
-      fontSize: 16,
-      fontWeight: '600',
-      color: colors.error,
-      marginLeft: 8,
-    },
-    bottomSpacing: {
-      height: 30,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalContent: {
-      backgroundColor: colors.cardBackground,
-      borderRadius: 20,
-      width: '90%',
-      maxWidth: 500,
-      maxHeight: '80%',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    modalTitle: {
-      fontSize: 20,
-      fontWeight: 'bold',
-      color: colors.text,
-    },
-    modalCloseButton: {
-      padding: 5,
-    },
-    modalScrollView: {
-      padding: 20,
-    },
-    warningBox: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      backgroundColor: colors.warning + '20',
-      padding: 15,
-      borderRadius: 10,
-      marginBottom: 20,
-      borderLeftWidth: 3,
-      borderLeftColor: colors.warning,
-      gap: 10,
-    },
-    warningText: {
-      flex: 1,
-      fontSize: 14,
-      color: colors.text,
-      lineHeight: 20,
-    },
-    inputGroup: {
-      marginBottom: 20,
-    },
-    label: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 8,
-    },
-    input: {
-      flex: 1,
-      padding: 15,
-      fontSize: 16,
-      color: colors.inputText,
-    },
-    passwordContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.inputBorder,
-      borderRadius: 10,
-      backgroundColor: colors.inputBackground,
-      paddingRight: 10,
-    },
-    eyeIcon: {
-      padding: 5,
-    },
-    modalButtons: {
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 10,
-    },
-    modalButton: {
-      flex: 1,
-      padding: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    cancelModalButton: {
-      backgroundColor: colors.buttonSecondary,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    cancelModalButtonText: {
-      color: colors.buttonSecondaryText,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    saveModalButton: {
-      backgroundColor: colors.primary,
-    },
-    saveModalButtonDisabled: {
-      opacity: 0.5,
-    },
-    saveModalButtonText: {
-      color: colors.cardBackground,
-      fontSize: 16,
-      fontWeight: 'bold',
-    },
-  });
-  
+  const { isDark, toggleTheme } = useTheme();
+
+  // Paramètres
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationsWorkouts, setNotificationsWorkouts] = useState(true);
   const [notificationsGoals, setNotificationsGoals] = useState(true);
   const [publicProfile, setPublicProfile] = useState(true);
+
+  // Mot de passe
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -254,576 +50,500 @@ export default function SettingsScreen({ refreshAuth }) {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [nextPasswordChangeDate, setNextPasswordChangeDate] = useState(null);
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+  // Utilisateurs bloqués
+  const [blockedModalVisible, setBlockedModalVisible] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState([]);
+
+  // Thème : un state local pour synchroniser le Switch visuellement
+  // (isDark vient du ThemeContext mais le Switch a besoin d'une valeur React)
+
+  useEffect(() => { loadSettings(); loadNextPasswordChangeDate(); }, []);
+
+  useEffect(() => { saveSettings(); }, [notificationsEnabled, notificationsWorkouts, notificationsGoals, publicProfile]);
 
   const loadSettings = async () => {
     try {
-      const settingsData = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (settingsData) {
-        const settings = JSON.parse(settingsData);
-        setNotificationsEnabled(settings.notificationsEnabled !== false);
-        setNotificationsWorkouts(settings.notificationsWorkouts !== false);
-        setNotificationsGoals(settings.notificationsGoals !== false);
-        setPublicProfile(settings.publicProfile !== false);
+      const data = await AsyncStorage.getItem(SETTINGS_STORAGE_KEY);
+      if (data) {
+        const s = JSON.parse(data);
+        setNotificationsEnabled(s.notificationsEnabled !== false);
+        setNotificationsWorkouts(s.notificationsWorkouts !== false);
+        setNotificationsGoals(s.notificationsGoals !== false);
+        setPublicProfile(s.publicProfile !== false);
       }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
+    } catch (_) { }
   };
 
   const saveSettings = async () => {
     try {
-      const settings = {
+      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
         notificationsEnabled,
         notificationsWorkouts,
         notificationsGoals,
         publicProfile,
-      };
-      await AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    }
+      }));
+    } catch (_) { }
   };
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
-  useEffect(() => {
-    saveSettings();
-  }, [notificationsEnabled, notificationsWorkouts, notificationsGoals, publicProfile]);
-
-  // Export de données
-  const handleExportData = async () => {
+  const loadNextPasswordChangeDate = async () => {
     try {
-      Alert.alert(
-        'Export de données',
-        'Voulez-vous exporter toutes vos données ?',
-        [
-          { text: 'Annuler', style: 'cancel' },
-          {
-            text: 'Exporter',
-            onPress: async () => {
-              try {
-                const user = await getCurrentUser();
-                const userInfo = await getUserInfo();
-                const workouts = await getWorkouts();
-                const dailyGoals = await getDailyGoals();
-                const dailyProgress = await getDailyProgress();
+      const date = await getNextPasswordChangeDate();
+      setNextPasswordChangeDate(date);
+    } catch (_) { }
+  };
 
-                const exportData = {
-                  exportDate: new Date().toISOString(),
-                  user: {
-                    email: user?.email,
-                    username: user?.username,
-                    firstName: user?.firstName,
-                    lastName: user?.lastName,
-                    phone: user?.phone,
-                  },
-                  userInfo: {
-                    age: userInfo?.age,
-                    gender: userInfo?.gender,
-                    weight: userInfo?.weight,
-                    height: userInfo?.height,
-                    profileImage: userInfo?.profileImage ? 'Image sauvegardée' : null,
-                  },
-                  dailyGoals,
-                  workouts,
-                  dailyProgress,
-                };
-
-                const jsonData = JSON.stringify(exportData, null, 2);
-
-                if (Platform.OS === 'web') {
-                  // Pour le web, télécharger le fichier
-                  const blob = new Blob([jsonData], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement('a');
-                  link.href = url;
-                  link.download = `game-changer-export-${Date.now()}.json`;
-                  link.click();
-                  URL.revokeObjectURL(url);
-                  Alert.alert('Succès', 'Vos données ont été exportées !');
-                } else {
-                  // Pour mobile, partager
-                  try {
-                    await Share.share({
-                      message: jsonData,
-                      title: 'Export de données Game Changer',
-                    });
-                  } catch (shareError) {
-                    // Si le partage échoue, afficher les données
-                    Alert.alert(
-                      'Vos données',
-                      jsonData.substring(0, 500) + '...\n\n(Données complètes dans la console)',
-                      [{ text: 'OK' }]
-                    );
-                    console.log('Export data:', jsonData);
-                  }
-                }
-              } catch (error) {
-                console.error('Error exporting data:', error);
-                Alert.alert('Erreur', 'Impossible d\'exporter les données');
-              }
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error in handleExportData:', error);
-      Alert.alert('Erreur', 'Une erreur est survenue');
+  // ─── Notifications objectifs ─────────────────────────────────
+  const handleToggleGoalNotifications = async (value) => {
+    setNotificationsGoals(value);
+    if (value) {
+      await scheduleGoalReminderNotification();
+    } else {
+      await cancelGoalNotifications();
     }
   };
 
-  const handleAccountSettings = () => {
-    Alert.alert('Mon compte', 'Redirection vers les paramètres du compte...');
+  const handleTestNotification = async () => {
+    const granted = await requestNotificationPermission();
+    if (!granted) {
+      Alert.alert('Permission refusée', 'Activez les notifications dans les réglages de votre téléphone.');
+      return;
+    }
+    await checkAndNotifyGoals();
+    Alert.alert('Notification envoyée', 'Une vérification de vos objectifs a été lancée.');
   };
 
-  const handlePassword = () => {
-    console.log('Opening password change modal');
-    setPasswordModalVisible(true);
-    setOldPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
+  // ─── Utilisateurs bloqués ─────────────────────────────────────
+  const handleOpenBlocked = async () => {
+    const list = await getBlockedUsers();
+    setBlockedUsers(list);
+    setBlockedModalVisible(true);
   };
 
+  const handleUnblock = async (userId) => {
+    const updated = await unblockUser(userId);
+    setBlockedUsers(updated);
+  };
+
+  // ─── Mot de passe ─────────────────────────────────────────────
   const handleChangePassword = async () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
-      return;
+      Alert.alert('Erreur', 'Veuillez remplir tous les champs'); return;
     }
-
     if (newPassword.length < 6) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères');
-      return;
+      Alert.alert('Erreur', 'Le nouveau mot de passe doit contenir au moins 6 caractères'); return;
     }
-
     if (newPassword !== confirmPassword) {
-      Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas');
-      return;
+      Alert.alert('Erreur', 'Les nouveaux mots de passe ne correspondent pas'); return;
     }
-
     if (oldPassword === newPassword) {
-      Alert.alert('Erreur', 'Le nouveau mot de passe doit être différent de l\'ancien');
-      return;
+      Alert.alert('Erreur', "Le nouveau mot de passe doit être différent de l'ancien"); return;
     }
-
     setIsChangingPassword(true);
     try {
       await changePassword(oldPassword, newPassword);
-      Alert.alert(
-        'Succès',
-        'Votre mot de passe a été modifié avec succès',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setPasswordModalVisible(false);
-              setOldPassword('');
-              setNewPassword('');
-              setConfirmPassword('');
-              loadNextPasswordChangeDate();
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      Alert.alert('Erreur', error.message || 'Impossible de changer le mot de passe');
+      Alert.alert('Succès', 'Mot de passe modifié avec succès', [{
+        text: 'OK', onPress: () => {
+          setPasswordModalVisible(false);
+          setOldPassword(''); setNewPassword(''); setConfirmPassword('');
+          loadNextPasswordChangeDate();
+        }
+      }]);
+    } catch (e) {
+      Alert.alert('Erreur', e.message || 'Impossible de changer le mot de passe');
     } finally {
       setIsChangingPassword(false);
     }
   };
 
-  const handleAppearance = () => {
-    Alert.alert('Apparence', 'L\'application utilise le thème sombre par défaut.');
+  // ─── Export ─────────────────────────────────────────────────
+  const handleExportData = async () => {
+    Alert.alert('Export de données', 'Voulez-vous exporter toutes vos données ?', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Exporter', onPress: async () => {
+          try {
+            const [user, userInfo, workouts, dailyGoals, dailyProgress] = await Promise.all([
+              getCurrentUser(), getUserInfo(), getWorkouts(), getDailyGoals(), getDailyProgress()
+            ]);
+            const json = JSON.stringify({ user, userInfo, workouts, dailyGoals, dailyProgress }, null, 2);
+            await Share.share({ message: json, title: 'Game Changer Export' });
+          } catch (e) {
+            Alert.alert('Erreur', "Impossible d'exporter les données");
+          }
+        }
+      }
+    ]);
   };
 
-  const handleBlockedUsers = () => {
-    Alert.alert('Utilisateurs bloqués', 'Fonctionnalité à venir...');
-  };
-
-  const handleMyReports = () => {
-    Alert.alert(
-      'Mes signalements',
-      'Consultez l\'état des signalements que vous avez effectués dans l\'application'
-    );
-  };
-
-  const handleAccountStatus = () => {
-    Alert.alert('Statut du compte', 'Votre compte est actif.');
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Supprimer le compte',
-      'Êtes-vous sûr de vouloir supprimer votre compte ? Cette action est irréversible.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Fonctionnalité à venir', 'La suppression de compte sera disponible prochainement.');
-          },
-        },
-      ]
-    );
-  };
-
-  const handlePublicProfileSettings = () => {
-    Alert.alert(
-      'Réglages du profil public',
-      `Votre profil est ${publicProfile ? 'public' : 'privé'}`,
-      [
-        { text: 'OK' }
-      ]
-    );
-  };
-
-  const handleMyApp = async () => {
-    try {
-      const user = await getCurrentUser();
-      Alert.alert(
-        'Mon application',
-        `Game Changer v1.0.0\n\nConnecté en tant que : ${user?.email || user?.username || 'Utilisateur'}`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      Alert.alert('Mon application', 'Game Changer v1.0.0', [{ text: 'OK' }]);
-    }
-  };
-
-  const handlePrivacyData = () => {
-    Alert.alert(
-      'Confidentialité et données',
-      'Vous pouvez exporter toutes vos données via "Ma confidentialité et mes données" dans la section "Application et confidentialité".',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleHelpSecurity = () => {
-    Alert.alert('Assistance et sécurité', 'Centre d\'aide et de sécurité...');
-  };
-
-  const renderSettingItem = (icon, title, subtitle, onPress, showArrow = true, rightComponent = null) => (
-    <TouchableOpacity
-      style={styles.settingItem}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.settingItemLeft}>
-        <Ionicons name={icon} size={22} color={colors.textSecondary} style={styles.settingIcon} />
-        <View style={styles.settingTextContainer}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+  // ─── Composants helpers ─────────────────────────────────────
+  const renderItem = (icon, title, subtitle, onPress, rightEl = null) => (
+    <TouchableOpacity style={s.item} onPress={onPress} activeOpacity={0.7}>
+      <View style={s.itemLeft}>
+        <Ionicons name={icon} size={22} color={colors.textSecondary} style={s.itemIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.itemTitle}>{title}</Text>
+          {subtitle ? <Text style={s.itemSub}>{subtitle}</Text> : null}
         </View>
       </View>
-      {rightComponent || (showArrow && (
-        <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />
-      ))}
+      {rightEl || <Ionicons name="chevron-forward" size={20} color={colors.textTertiary} />}
     </TouchableOpacity>
   );
 
-  const renderSwitchItem = (icon, title, subtitle, value, onValueChange) => (
-    <View style={styles.settingItem}>
-      <View style={styles.settingItemLeft}>
-        <Ionicons name={icon} size={22} color={colors.textSecondary} style={styles.settingIcon} />
-        <View style={styles.settingTextContainer}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+  const renderSwitch = (icon, title, subtitle, value, onChange) => (
+    <View style={s.item}>
+      <View style={s.itemLeft}>
+        <Ionicons name={icon} size={22} color={colors.textSecondary} style={s.itemIcon} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.itemTitle}>{title}</Text>
+          {subtitle ? <Text style={s.itemSub}>{subtitle}</Text> : null}
         </View>
       </View>
       <Switch
         value={value}
-        onValueChange={onValueChange}
+        onValueChange={onChange}
         trackColor={{ false: colors.border, true: colors.primary + '80' }}
         thumbColor={value ? colors.primary : colors.textSecondary}
       />
     </View>
   );
 
+  // ─── STYLES (inline car dépend du thème dynamique) ───────────
+  const s = StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.background },
+    header: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 15, paddingTop: 50, paddingBottom: 15,
+      backgroundColor: colors.cardBackground,
+      borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    headerTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text, flex: 1, textAlign: 'center' },
+    sectionTitle: {
+      fontSize: 12, fontWeight: '700', color: colors.textTertiary,
+      textTransform: 'uppercase', paddingHorizontal: 20, paddingVertical: 10, letterSpacing: 0.8,
+    },
+    item: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingHorizontal: 20, paddingVertical: 15, backgroundColor: colors.cardBackground,
+    },
+    itemLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+    itemIcon: { marginRight: 15, width: 24 },
+    itemTitle: { fontSize: 16, color: colors.text },
+    itemSub: { fontSize: 13, color: colors.textSecondary, marginTop: 3, lineHeight: 18 },
+    divider: { height: 1, backgroundColor: colors.border },
+    sectionGap: { height: 8, backgroundColor: colors.background },
+
+    // Thème toggle card
+    themeCard: {
+      margin: 15, borderRadius: 16, backgroundColor: colors.cardBackground,
+      borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    },
+    themeRow: {
+      flexDirection: 'row', padding: 4, margin: 12,
+      backgroundColor: colors.background, borderRadius: 12,
+    },
+    themeBtn: {
+      flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      gap: 8, paddingVertical: 10, borderRadius: 10,
+    },
+    themeBtnActive: { backgroundColor: colors.cardBackground },
+    themeBtnText: { fontSize: 15, fontWeight: '600', color: colors.textSecondary },
+    themeBtnTextActive: { color: colors.text },
+
+    // Logout
+    logoutBtn: {
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 15, marginHorizontal: 20, marginVertical: 8,
+      borderRadius: 12, borderWidth: 1,
+      borderColor: colors.error + '40', backgroundColor: colors.error + '10',
+    },
+    logoutText: { fontSize: 16, fontWeight: '600', color: colors.error, marginLeft: 8 },
+
+    // Modal partagé
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+    modalBox: {
+      backgroundColor: colors.cardBackground, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+      maxHeight: '85%',
+    },
+    modalHeader: {
+      flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+      padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border,
+    },
+    modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+    modalScroll: { padding: 20 },
+    label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 8 },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center',
+      borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+      backgroundColor: colors.background, paddingRight: 10, marginBottom: 16,
+    },
+    input: { flex: 1, padding: 14, fontSize: 15, color: colors.text },
+    modalBtns: { flexDirection: 'row', gap: 10, marginTop: 10 },
+    modalBtn: { flex: 1, padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    modalBtnCancel: { backgroundColor: colors.buttonSecondary, borderWidth: 1, borderColor: colors.border },
+    modalBtnCancelText: { color: colors.buttonSecondaryText, fontWeight: '600' },
+    modalBtnSave: { backgroundColor: colors.primary },
+    modalBtnSaveText: { color: colors.cardBackground, fontWeight: 'bold' },
+
+    // Blocked users
+    blockedItem: {
+      flexDirection: 'row', alignItems: 'center', paddingVertical: 14,
+      borderBottomWidth: 1, borderBottomColor: colors.border, gap: 12,
+    },
+    blockedAvatar: {
+      width: 44, height: 44, borderRadius: 22,
+      backgroundColor: colors.error + '20', alignItems: 'center', justifyContent: 'center',
+    },
+    blockedName: { fontSize: 16, fontWeight: '600', color: colors.text },
+    blockedEmail: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
+    unblockBtn: {
+      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+      borderWidth: 1, borderColor: colors.primary,
+    },
+    unblockText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+    emptyBlocked: { alignItems: 'center', paddingVertical: 40 },
+    emptyBlockedText: { fontSize: 15, color: colors.textSecondary, marginTop: 12 },
+  });
+
   return (
-    <View style={styles.container}>
+    <View style={s.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Réglages</Text>
-        <View style={styles.searchButton} />
+        <Text style={s.headerTitle}>Réglages</Text>
+        <View style={{ width: 34 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Section Raccourcis */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Raccourcis</Text>
-          {renderSettingItem(
-            'lock-closed-outline',
-            'Mot de passe',
-            nextPasswordChangeDate
-              ? `Prochain changement possible le ${nextPasswordChangeDate.toLocaleDateString('fr-FR')}`
-              : null,
-            handlePassword
-          )}
-          {renderSwitchItem(
-            'notifications-outline',
-            'Notifications',
-            'Activer les notifications push',
-            notificationsEnabled,
-            setNotificationsEnabled
-          )}
-          {renderSwitchItem(
-            'barbell-outline',
-            'Notifications entraînements',
-            'Recevoir des notifications pour vos entraînements',
-            notificationsWorkouts,
-            setNotificationsWorkouts
-          )}
-          {renderSwitchItem(
-            'flag-outline',
-            'Notifications objectifs',
-            'Recevoir des notifications pour vos objectifs',
-            notificationsGoals,
-            setNotificationsGoals
-          )}
-          {renderSettingItem('color-palette-outline', 'Apparence de l\'application', 'Thème sombre', handleAppearance)}
-          {renderSettingItem('ban-outline', 'Utilisateurs·rices bloqués·es', null, handleBlockedUsers)}
+      <ScrollView showsVerticalScrollIndicator={false}>
+
+        {/* ── Thème ─────────────────────────────── */}
+        <Text style={s.sectionTitle}>Apparence</Text>
+        <View style={s.themeCard}>
+          <View style={[s.item, { paddingBottom: 8 }]}>
+            <View style={s.itemLeft}>
+              <Ionicons name="color-palette-outline" size={22} color={colors.textSecondary} style={s.itemIcon} />
+              <Text style={s.itemTitle}>Thème de l'application</Text>
+            </View>
+          </View>
+          <View style={s.themeRow}>
+            <TouchableOpacity
+              style={[s.themeBtn, isDark && s.themeBtnActive]}
+              onPress={() => !isDark && toggleTheme()}
+            >
+              <Ionicons name="moon" size={18} color={isDark ? colors.primary : colors.textSecondary} />
+              <Text style={[s.themeBtnText, isDark && s.themeBtnTextActive]}>Sombre</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.themeBtn, !isDark && s.themeBtnActive]}
+              onPress={() => isDark && toggleTheme()}
+            >
+              <Ionicons name="sunny" size={18} color={!isDark ? colors.primary : colors.textSecondary} />
+              <Text style={[s.themeBtnText, !isDark && s.themeBtnTextActive]}>Clair</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View style={styles.divider} />
+        <View style={s.sectionGap} />
+        <View style={s.divider} />
 
-        {/* Statut du compte */}
-        {renderSettingItem('checkmark-circle-outline', 'Statut du compte', null, handleAccountStatus)}
-        {renderSettingItem(
+        {/* ── Notifications ─────────────────────── */}
+        <Text style={s.sectionTitle}>Notifications</Text>
+        {renderSwitch('notifications-outline', 'Notifications', 'Activer les notifications push', notificationsEnabled, setNotificationsEnabled)}
+        <View style={s.divider} />
+        {renderSwitch('barbell-outline', 'Entraînements', 'Notifier pour les entraînements', notificationsWorkouts, setNotificationsWorkouts)}
+        <View style={s.divider} />
+        {renderSwitch(
+          'flag-outline',
+          'Objectifs quotidiens',
+          'Rappel à 21h si objectifs non atteints',
+          notificationsGoals,
+          handleToggleGoalNotifications
+        )}
+        <View style={s.divider} />
+        {renderItem(
+          'paper-plane-outline',
+          'Tester la notification objectifs',
+          'Envoie une vérification immédiate',
+          handleTestNotification
+        )}
+
+        <View style={s.sectionGap} />
+        <View style={s.divider} />
+
+        {/* ── Sécurité ──────────────────────────── */}
+        <Text style={s.sectionTitle}>Sécurité</Text>
+        {renderItem(
+          'lock-closed-outline',
+          'Mot de passe',
+          nextPasswordChangeDate
+            ? `Prochain changement le ${nextPasswordChangeDate.toLocaleDateString('fr-FR')}`
+            : 'Modifier votre mot de passe',
+          () => { setPasswordModalVisible(true); setOldPassword(''); setNewPassword(''); setConfirmPassword(''); }
+        )}
+
+        <View style={s.sectionGap} />
+        <View style={s.divider} />
+
+        {/* ── Profil & Confidentialité ──────────── */}
+        <Text style={s.sectionTitle}>Profil & Confidentialité</Text>
+        {renderSwitch(
+          'person-circle-outline',
+          'Profil public',
+          'Rendre votre profil visible par les autres utilisateurs',
+          publicProfile,
+          setPublicProfile
+        )}
+        <View style={s.divider} />
+        {renderItem('ban-outline', 'Utilisateurs bloqués', 'Gérer les utilisateurs bloqués', handleOpenBlocked)}
+
+        <View style={s.sectionGap} />
+        <View style={s.divider} />
+
+        {/* ── Application ───────────────────────── */}
+        <Text style={s.sectionTitle}>Application et données</Text>
+        {renderItem('download-outline', 'Exporter mes données', 'Télécharger vos données personnelles', handleExportData)}
+        <View style={s.divider} />
+        {renderItem('shield-checkmark-outline', 'Confidentialité', null, () => Alert.alert('Confidentialité', "Vos données sont stockées localement sur votre appareil."))}
+        <View style={s.divider} />
+        {renderItem('help-circle-outline', "Centre d'aide", null, () => Alert.alert("Centre d'aide", 'Contactez-nous à support@gamechangerapp.com'))}
+        <View style={s.divider} />
+        {renderItem(
           'trash-outline',
           'Supprimer le compte',
           null,
-          handleDeleteAccount,
-          true,
-          null
+          () => Alert.alert('Supprimer le compte', 'Êtes-vous sûr ? Cette action est irréversible.', [
+            { text: 'Annuler', style: 'cancel' },
+            { text: 'Supprimer', style: 'destructive', onPress: () => Alert.alert('À venir', 'Fonctionnalité bientôt disponible.') },
+          ])
         )}
 
-        <View style={styles.divider} />
-
-        {/* Réglages du profil public */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Réglages du profil public</Text>
-          {renderSwitchItem(
-            'person-circle-outline',
-            'Profil public',
-            'Rendre votre profil visible par les autres utilisateurs',
-            publicProfile,
-            setPublicProfile
-          )}
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Application et confidentialité */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Application et confidentialité</Text>
-          {renderSettingItem('phone-portrait-outline', 'Mon application', null, handleMyApp)}
-          {renderSettingItem(
-            'download-outline',
-            'Exporter mes données',
-            'Télécharger toutes vos données personnelles',
-            handleExportData
-          )}
-          {renderSettingItem('shield-checkmark-outline', 'Ma confidentialité et mes données', null, handlePrivacyData)}
-        </View>
-
-        <View style={styles.divider} />
-
-        {/* Assistance et sécurité */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Assistance et sécurité</Text>
-          {renderSettingItem('help-circle-outline', 'Centre d\'aide', null, handleHelpSecurity)}
-          {renderSettingItem('shield-outline', 'Sécurité', null, handleHelpSecurity)}
-          {renderSettingItem('document-text-outline', 'Conditions d\'utilisation', null, handleHelpSecurity)}
-          {renderSettingItem('lock-closed-outline', 'Politique de confidentialité', null, handlePrivacyData)}
-        </View>
-
-        {/* Bouton de déconnexion */}
-        <View style={styles.logoutSection}>
+        {/* ── Déconnexion ───────────────────────── */}
+        <View style={{ paddingVertical: 20 }}>
           <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={() => {
-              Alert.alert(
-                'Déconnexion',
-                'Êtes-vous sûr de vouloir vous déconnecter ?',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  {
-                    text: 'Déconnexion',
-                    style: 'destructive',
-                    onPress: async () => {
-                      try {
-                        await signOut();
-                        if (refreshAuth) {
-                          refreshAuth();
-                        }
-                      } catch (error) {
-                        Alert.alert('Erreur', 'Une erreur est survenue lors de la déconnexion');
-                      }
-                    },
-                  },
-                ]
-              );
-            }}
+            style={s.logoutBtn}
+            onPress={() => Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
+              { text: 'Annuler', style: 'cancel' },
+              {
+                text: 'Déconnecter', style: 'destructive', onPress: async () => {
+                  try { await signOut(); if (refreshAuth) refreshAuth(); }
+                  catch (_) { Alert.alert('Erreur', 'Impossible de se déconnecter'); }
+                }
+              }
+            ])}
           >
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={styles.logoutButtonText}>Se déconnecter</Text>
+            <Text style={s.logoutText}>Se déconnecter</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.bottomSpacing} />
+        <View style={{ height: 30 }} />
       </ScrollView>
 
-      {/* Modal de changement de mot de passe */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={passwordModalVisible}
-        onRequestClose={() => setPasswordModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Changer le mot de passe</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setPasswordModalVisible(false);
-                  setOldPassword('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                }}
-                style={styles.modalCloseButton}
-              >
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+      {/* ── Modal : Mot de passe ─────────────────── */}
+      <Modal animationType="slide" transparent visible={passwordModalVisible} onRequestClose={() => setPasswordModalVisible(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalBox}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Changer le mot de passe</Text>
+              <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-
-            <ScrollView style={styles.modalScrollView}>
+            <ScrollView style={s.modalScroll}>
               {nextPasswordChangeDate && new Date() < nextPasswordChangeDate && (
-                <View style={styles.warningBox}>
-                  <Ionicons name="information-circle" size={20} color={colors.warning} />
-                  <Text style={styles.warningText}>
-                    Vous ne pouvez changer votre mot de passe que tous les 3 mois.{'\n'}
+                <View style={{ backgroundColor: colors.warning + '20', padding: 14, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: colors.warning, marginBottom: 16 }}>
+                  <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
                     Prochain changement possible le {nextPasswordChangeDate.toLocaleDateString('fr-FR')}
                   </Text>
                 </View>
               )}
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Ancien mot de passe</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={oldPassword}
-                    onChangeText={setOldPassword}
-                    secureTextEntry={!showOldPassword}
-                    placeholder="Entrez votre ancien mot de passe"
-                    placeholderTextColor={colors.textTertiary}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowOldPassword(!showOldPassword)}
-                    style={styles.eyeIcon}
-                  >
-                    <Ionicons
-                      name={showOldPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={colors.textSecondary}
+              {[
+                { label: 'Ancien mot de passe', value: oldPassword, setter: setOldPassword, show: showOldPassword, toggle: () => setShowOldPassword(v => !v) },
+                { label: 'Nouveau mot de passe', value: newPassword, setter: setNewPassword, show: showNewPassword, toggle: () => setShowNewPassword(v => !v) },
+                { label: 'Confirmer le mot de passe', value: confirmPassword, setter: setConfirmPassword, show: showConfirmPassword, toggle: () => setShowConfirmPassword(v => !v) },
+              ].map(({ label, value, setter, show, toggle }) => (
+                <View key={label} style={{ marginBottom: 16 }}>
+                  <Text style={s.label}>{label}</Text>
+                  <View style={s.inputWrap}>
+                    <TextInput
+                      style={s.input}
+                      value={value}
+                      onChangeText={setter}
+                      secureTextEntry={!show}
+                      placeholder={label}
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="none"
                     />
-                  </TouchableOpacity>
+                    <TouchableOpacity onPress={toggle}>
+                      <Ionicons name={show ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nouveau mot de passe</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    secureTextEntry={!showNewPassword}
-                    placeholder="Minimum 6 caractères"
-                    placeholderTextColor={colors.textTertiary}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowNewPassword(!showNewPassword)}
-                    style={styles.eyeIcon}
-                  >
-                    <Ionicons
-                      name={showNewPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Confirmer le nouveau mot de passe</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.input}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                    placeholder="Répétez le nouveau mot de passe"
-                    placeholderTextColor={colors.textTertiary}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.eyeIcon}
-                  >
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color={colors.textSecondary}
-                    />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelModalButton]}
-                  onPress={() => {
-                    setPasswordModalVisible(false);
-                    setOldPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  disabled={isChangingPassword}
-                >
-                  <Text style={styles.cancelModalButtonText}>Annuler</Text>
+              ))}
+              <View style={s.modalBtns}>
+                <TouchableOpacity style={[s.modalBtn, s.modalBtnCancel]} onPress={() => setPasswordModalVisible(false)}>
+                  <Text style={s.modalBtnCancelText}>Annuler</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[
-                    styles.modalButton,
-                    styles.saveModalButton,
-                    isChangingPassword && styles.saveModalButtonDisabled,
-                  ]}
+                  style={[s.modalBtn, s.modalBtnSave, isChangingPassword && { opacity: 0.6 }]}
                   onPress={handleChangePassword}
                   disabled={isChangingPassword}
                 >
-                  {isChangingPassword ? (
-                    <Text style={styles.saveModalButtonText}>Changement...</Text>
-                  ) : (
-                    <Text style={styles.saveModalButtonText}>Changer</Text>
-                  )}
+                  <Text style={s.modalBtnSaveText}>{isChangingPassword ? 'Modification...' : 'Enregistrer'}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal : Utilisateurs bloqués ─────────── */}
+      <Modal animationType="slide" transparent visible={blockedModalVisible} onRequestClose={() => setBlockedModalVisible(false)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalBox}>
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>Utilisateurs bloqués</Text>
+              <TouchableOpacity onPress={() => setBlockedModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            {blockedUsers.length === 0 ? (
+              <View style={[s.modalScroll, s.emptyBlocked]}>
+                <Ionicons name="ban-outline" size={56} color={colors.textTertiary} />
+                <Text style={s.emptyBlockedText}>Aucun utilisateur bloqué</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={blockedUsers}
+                keyExtractor={item => item.id}
+                contentContainerStyle={s.modalScroll}
+                renderItem={({ item }) => (
+                  <View style={s.blockedItem}>
+                    <View style={s.blockedAvatar}>
+                      <Ionicons name="person" size={22} color={colors.error} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.blockedName}>{item.name || item.username || item.email}</Text>
+                      {item.email && <Text style={s.blockedEmail}>{item.email}</Text>}
+                      {item.blockedAt && (
+                        <Text style={[s.blockedEmail, { fontSize: 11, marginTop: 2 }]}>
+                          Bloqué le {new Date(item.blockedAt).toLocaleDateString('fr-FR')}
+                        </Text>
+                      )}
+                    </View>
+                    <TouchableOpacity style={s.unblockBtn} onPress={() => {
+                      Alert.alert('Débloquer', `Débloquer ${item.name || item.email} ?`, [
+                        { text: 'Annuler', style: 'cancel' },
+                        { text: 'Débloquer', onPress: () => handleUnblock(item.id) }
+                      ]);
+                    }}>
+                      <Text style={s.unblockText}>Débloquer</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              />
+            )}
           </View>
         </View>
       </Modal>

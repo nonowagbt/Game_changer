@@ -11,7 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { signIn, getLastEmail } from '../utils/auth';
+import { signIn, getLastEmail, signInWithGoogle } from '../utils/auth';
 import { colors } from '../theme/colors';
 
 export default function LoginScreen({ onLogin, onSignUp }) {
@@ -53,6 +53,21 @@ export default function LoginScreen({ onLogin, onSignUp }) {
     } catch (error) {
       // Afficher l'erreur en rouge dans le formulaire
       setError(error.message || 'Identifiant ou mot de passe incorrect');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      if (onLogin) {
+        onLogin();
+      }
+    } catch (error) {
+      setError(error.message || 'Erreur lors de la connexion avec Google');
     } finally {
       setLoading(false);
     }
@@ -213,6 +228,21 @@ export default function LoginScreen({ onLogin, onSignUp }) {
             )}
           </TouchableOpacity>
 
+          <View style={styles.dividerContainer}>
+            <View style={styles.divider} />
+            <Text style={styles.dividerText}>ou</Text>
+            <View style={styles.divider} />
+          </View>
+
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+          >
+            <Ionicons name="logo-google" size={20} color={colors.text} />
+            <Text style={styles.googleButtonText}>Continuer avec Google</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.signupLink}
             onPress={onSignUp}
@@ -364,6 +394,38 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginTop: 5,
     fontStyle: 'italic',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 15,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.cardBackground,
+    padding: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 20,
+    gap: 10,
+  },
+  googleButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
   },
 });
 

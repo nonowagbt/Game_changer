@@ -1,12 +1,48 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
+import Constants from 'expo-constants';
 import { mongodbConfig, isMongoConfigured } from '../config/mongodb';
+
+// Configuration pour WebBrowser
+WebBrowser.maybeCompleteAuthSession();
 
 const mongoConfigured = isMongoConfigured();
 const STORAGE_KEYS = {
   CURRENT_USER: 'current_user',
   USERS: 'users',
   LAST_EMAIL: 'last_email', // Pour mémoriser l'email même après déconnexion
+  GOOGLE_ACCESS_TOKEN: 'google_access_token',
+  GOOGLE_REFRESH_TOKEN: 'google_refresh_token',
+  GOOGLE_USER_INFO: 'google_user_info',
 };
+
+// Configuration Google OAuth
+// NOTE: Vous devez configurer ces valeurs dans Google Cloud Console
+// et les ajouter dans app.json ou un fichier de configuration
+const GOOGLE_CONFIG = {
+  // Ces valeurs doivent être configurées dans Google Cloud Console
+  // Pour le développement, utilisez expo-auth-session qui génère automatiquement les URLs
+  clientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || Constants.expoConfig?.extra?.googleClientId || '',
+  scopes: [
+    'openid',
+    'profile',
+    'email',
+    'https://www.googleapis.com/auth/fitness.activity.write',
+    'https://www.googleapis.com/auth/fitness.body.write',
+    'https://www.googleapis.com/auth/fitness.location.write',
+  ],
+  redirectUri: AuthSession.makeRedirectUri({
+    scheme: 'game-changer',
+    path: 'oauth/callback',
+  }),
+};
+
+// Note: Pour utiliser Google Sign-In, vous devez :
+// 1. Créer un projet dans Google Cloud Console
+// 2. Activer l'API Google Fit
+// 3. Configurer OAuth 2.0
+// 4. Ajouter EXPO_PUBLIC_GOOGLE_CLIENT_ID dans votre fichier .env ou app.json
 
 // Fonctions MongoDB pour les utilisateurs
 const mongoRequest = async (action, collection, filter = {}, additionalData = {}) => {
@@ -517,5 +553,147 @@ export const getNextPasswordChangeDate = async () => {
   nextChangeDate.setMonth(nextChangeDate.getMonth() + 3);
 
   return nextChangeDate;
+};
+
+// Connexion avec Google
+export const signInWithGoogle = async () => {
+  try {
+    // Créer la requête d'authentification
+    const request = new AuthSession.AuthRequest({
+      clientId: GOOGLE_CONFIG.clientId,
+      scopes: GOOGLE_CONFIG.scopes,
+      redirectUri: GOOGLE_CONFIG.redirectUri,
+      responseType: AuthSession.ResponseType.Token,
+      usePKCE: true,
+    });
+
+    // Obtenir l'URL d'autorisation
+    const discovery = {
+      authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenEndpoint: 'https://oauth2.googleapis.com/token',
+      revocationEndpoint: 'https://oauth2.googleapis.com/revoke',
+    };
+
+    // Lancer l'authentification
+    const result = await request.promptAsync(discovery, {
+      useProxy: true,
+      showInRecents: true,
+    });
+
+    if (result.type === 'success') {
+      const { access_token, id_token } = result.params;
+
+      // Récupérer les informations utilisateur depuis Google
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+      });
+
+      if (!userInfoResponse.ok) {
+        throw new Error('Impossible de récupérer les informations utilisateur');
+      }
+
+      const googleUserInfo = await userInfoResponse.json();
+
+      // Sauvegarder les tokens
+      await AsyncStorage.setItem(STORAGE_KEYS.GOOGLE_ACCESS_TOKEN, access_token);
+      if (result.params.refresh_token) {
+        await AsyncStorage.setItem(STORAGE_KEYS.GOOGLE_REFRESH_TOKEN, result.params.refresh_token);
+      }
+      await AsyncStorage.setItem(STORAGE_KEYS.GOOGLE_USER_INFO, JSON.stringify(googleUserInfo));
+
+      // Vérifier si l'utilisateur existe déjà dans notre base de données
+      let user = await getUserByEmail(googleUserInfo.email);
+
+      if (!user) {
+        // Créer un nouvel utilisateur avec les informations Google
+        const newUser = {
+          id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          email: googleUserInfo.email,
+          password: null, // Pas de mot de passe pour les utilisateurs Google
+          firstName: googleUserInfo.given_name || '',
+          lastName: googleUserInfo.family_name || '',
+          username: null,
+          phone: '',
+          profileImage: googleUserInfo.picture || null,
+          authProvider: 'google',
+          googleId: googleUserInfo.id,
+          createdAt: new Date().toISOString(),
+          lastPasswordChange: new Date().toISOString(),
+        };
+
+        if (mongoConfigured) {
+          try {
+            await mongoRequest('insertOne', 'users', {}, {
+              document: newUser,
+            });
+          } catch (error) {
+            console.error('Error saving Google user to MongoDB:', error);
+            const users = await getUsers();
+            users.push(newUser);
+            await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+          }
+        } else {
+          const users = await getUsers();
+          users.push(newUser);
+          await AsyncStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+        }
+
+        user = newUser;
+      } else {
+        // Mettre à jour les informations si nécessaire
+        const updatedUser = {
+          ...user,
+          profileImage: googleUserInfo.picture || user.profileImage,
+          authProvider: 'google',
+          googleId: googleUserInfo.id,
+        };
+
+        if (mongoConfigured) {
+          try {
+            await mongoRequest('updateOne', 'users', { id: user.id }, {
+              update: { $set: updatedUser },
+            });
+          } catch (error) {
+            console.error('Error updating Google user in MongoDB:', error);
+          }
+        }
+
+        user = updatedUser;
+      }
+
+      // Sauvegarder les informations utilisateur
+      await saveUserInfoFromSignup(user);
+
+      // Connecter l'utilisateur
+      await setCurrentUser(user);
+
+      return user;
+    } else {
+      throw new Error('Authentification Google annulée');
+    }
+  } catch (error) {
+    console.error('Error signing in with Google:', error);
+    throw error;
+  }
+};
+
+// Obtenir le token d'accès Google
+export const getGoogleAccessToken = async () => {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.GOOGLE_ACCESS_TOKEN);
+  } catch (error) {
+    return null;
+  }
+};
+
+// Vérifier si l'utilisateur est connecté avec Google
+export const isGoogleUser = async () => {
+  const currentUser = await getCurrentUser();
+  if (!currentUser) return false;
+  
+  const user = await getUserByEmail(currentUser.email);
+  return user && user.authProvider === 'google';
 };
 

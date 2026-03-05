@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,14 @@ import {
   Alert,
   ScrollView,
   Image,
+  Modal,
+  TextInput,
+  FlatList,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect } from '@react-navigation/native';
 import { updateDailyProgress, getDailyProgress } from '../utils/db';
 import { colors } from '../theme/colors';
 import { FOOD_DATABASE } from '../data/foodDatabase';
@@ -18,6 +22,9 @@ import FoodItem from '../components/FoodItem';
 import CaloriesSummary, { calculateTotalCalories } from '../components/CaloriesSummary';
 import { recognizeFoods } from '../utils/imageRecognition';
 import { ActivityIndicator } from 'react-native';
+
+// Liste complète des aliments pour la recherche
+const ALL_FOODS = Object.keys(FOOD_DATABASE);
 
 export default function ScannerScreen() {
   const [facing, setFacing] = useState('back');
@@ -33,13 +40,41 @@ export default function ScannerScreen() {
   const [showManualAdd, setShowManualAdd] = useState(false);
   const [isTakingPicture, setIsTakingPicture] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+
+  // --- État pour le modal de remplacement ---
+  const [replaceModalVisible, setReplaceModalVisible] = useState(false);
+  const [foodToReplace, setFoodToReplace] = useState(null); // nom de l'aliment à remplacer
+  const [searchQuery, setSearchQuery] = useState('');
+
   const cameraRef = useRef(null);
 
-  useEffect(() => {
+  // -------------------------------------------------------
+  // FIX CAMÉRA : activer/désactiver à chaque changement de focus
+  // -------------------------------------------------------
+  useFocusEffect(
+    useCallback(() => {
+      // Quand l'écran prend le focus → on active la caméra
+      setCameraActive(true);
+      setCameraReady(false);
+
+      return () => {
+        // Quand l'écran perd le focus → on désactive la caméra
+        setCameraActive(false);
+        setCameraReady(false);
+      };
+    }, [])
+  );
+
+  // Mise à jour des calories totales dès que la sélection change
+  React.useEffect(() => {
     const total = calculateTotalCalories(selectedFoods, customPortion);
     setEstimatedCalories(total);
   }, [selectedFoods, customPortion]);
 
+  // -------------------------------------------------------
+  // Permissions
+  // -------------------------------------------------------
   const handleRequestPermission = async () => {
     setIsRequestingPermission(true);
     try {
@@ -47,7 +82,7 @@ export default function ScannerScreen() {
       if (!result.granted) {
         Alert.alert(
           'Permission refusée',
-          'L\'accès à la caméra est nécessaire pour scanner vos repas. Vous pouvez l\'activer dans les paramètres de l\'application.',
+          "L'accès à la caméra est nécessaire pour scanner vos repas. Vous pouvez l'activer dans les paramètres de l'application.",
           [{ text: 'OK', style: 'default' }]
         );
       }
@@ -58,21 +93,20 @@ export default function ScannerScreen() {
     }
   };
 
+  // -------------------------------------------------------
+  // Prise de photo
+  // -------------------------------------------------------
   const takePicture = async () => {
-    // Protection contre les appels multiples
-    if (isTakingPicture || !cameraRef.current || !cameraReady) {
-      return;
-    }
+    if (isTakingPicture || !cameraRef.current || !cameraReady) return;
 
     setIsTakingPicture(true);
-    
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
         skipProcessing: false,
       });
-      
+
       if (photo && photo.uri) {
         setPhoto(photo.uri);
         setShowFoodSelection(true);
@@ -80,25 +114,23 @@ export default function ScannerScreen() {
         setCustomPortion({});
         setDetectedFoods([]);
         setShowManualAdd(false);
-        
-        // Démarrer la reconnaissance automatique
         await recognizeFoodsInImage(photo.uri);
       }
     } catch (error) {
       console.error('Erreur lors de la prise de photo:', error);
       Alert.alert('Erreur', 'Impossible de prendre la photo. Veuillez réessayer.');
     } finally {
-      // Réinitialiser l'état après un court délai pour permettre à la caméra de se stabiliser
-      setTimeout(() => {
-        setIsTakingPicture(false);
-      }, 500);
+      setTimeout(() => setIsTakingPicture(false), 500);
     }
   };
 
+  // -------------------------------------------------------
+  // Galerie
+  // -------------------------------------------------------
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission requise', 'Nous avons besoin de la permission pour accéder à vos photos');
+      Alert.alert('Permission requise', "Nous avons besoin de la permission pour accéder à vos photos");
       return;
     }
 
@@ -116,12 +148,13 @@ export default function ScannerScreen() {
       setCustomPortion({});
       setDetectedFoods([]);
       setShowManualAdd(false);
-      
-      // Démarrer la reconnaissance automatique
       await recognizeFoodsInImage(result.assets[0].uri);
     }
   };
 
+  // -------------------------------------------------------
+  // Sélection / Déselection d'un aliment
+  // -------------------------------------------------------
   const toggleFood = (foodName) => {
     if (selectedFoods.includes(foodName)) {
       setSelectedFoods(selectedFoods.filter((f) => f !== foodName));
@@ -137,6 +170,9 @@ export default function ScannerScreen() {
     setCustomPortion({ ...customPortion, [foodName]: parseFloat(portion) || 100 });
   };
 
+  // -------------------------------------------------------
+  // Ajouter les calories
+  // -------------------------------------------------------
   const handleAddCalories = async () => {
     if (estimatedCalories <= 0) {
       Alert.alert('Erreur', 'Veuillez sélectionner au moins un aliment');
@@ -166,24 +202,23 @@ export default function ScannerScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('Erreur', 'Impossible d\'ajouter les calories');
+      Alert.alert('Erreur', "Impossible d'ajouter les calories");
     }
   };
 
+  // -------------------------------------------------------
+  // Reconnaissance IA
+  // -------------------------------------------------------
   const recognizeFoodsInImage = async (imageUri) => {
     setIsRecognizing(true);
     try {
       const detected = await recognizeFoods(imageUri);
       setDetectedFoods(detected);
-      
-      // Ajouter automatiquement les aliments détectés
+
       if (detected.length > 0) {
         setSelectedFoods(detected);
-        // Initialiser les portions à 100g par défaut pour les aliments détectés
         const portions = {};
-        detected.forEach((food) => {
-          portions[food] = 100;
-        });
+        detected.forEach((food) => { portions[food] = 100; });
         setCustomPortion(portions);
       }
     } catch (error) {
@@ -193,6 +228,9 @@ export default function ScannerScreen() {
     }
   };
 
+  // -------------------------------------------------------
+  // Réinitialiser le scanner → retour caméra
+  // -------------------------------------------------------
   const resetScanner = () => {
     setPhoto(null);
     setShowFoodSelection(false);
@@ -202,12 +240,59 @@ export default function ScannerScreen() {
     setDetectedFoods([]);
     setShowManualAdd(false);
     setIsTakingPicture(false);
-    // Réinitialiser l'état de la caméra après un court délai
-    setTimeout(() => {
-      setCameraReady(true);
-    }, 300);
+    setCameraReady(false);
   };
 
+  // -------------------------------------------------------
+  // Modal de remplacement d'aliment
+  // -------------------------------------------------------
+  const openReplaceModal = (foodName) => {
+    setFoodToReplace(foodName);
+    setSearchQuery('');
+    setReplaceModalVisible(true);
+  };
+
+  const handleReplaceFood = (newFoodName) => {
+    if (!foodToReplace || newFoodName === foodToReplace) {
+      setReplaceModalVisible(false);
+      return;
+    }
+
+    // Remplacer dans detectedFoods
+    setDetectedFoods((prev) =>
+      prev.map((f) => (f === foodToReplace ? newFoodName : f))
+    );
+
+    // Remplacer dans selectedFoods si l'ancien était sélectionné
+    setSelectedFoods((prev) => {
+      const wasSelected = prev.includes(foodToReplace);
+      const without = prev.filter((f) => f !== foodToReplace);
+      return wasSelected ? [...without, newFoodName] : without;
+    });
+
+    // Transférer la portion de l'ancien vers le nouveau
+    setCustomPortion((prev) => {
+      const newPortion = { ...prev };
+      if (newPortion[foodToReplace] !== undefined) {
+        newPortion[newFoodName] = newPortion[foodToReplace];
+        delete newPortion[foodToReplace];
+      }
+      return newPortion;
+    });
+
+    setReplaceModalVisible(false);
+    setFoodToReplace(null);
+  };
+
+  // Filtrer les aliments selon la recherche
+  const filteredFoods = ALL_FOODS.filter((name) =>
+    name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    name !== foodToReplace
+  );
+
+  // -------------------------------------------------------
+  // RENDU : Permission requise
+  // -------------------------------------------------------
   if (!permission) {
     return (
       <View style={styles.permissionContainer}>
@@ -225,12 +310,12 @@ export default function ScannerScreen() {
           Pour scanner vos repas et estimer les calories, nous avons besoin d'accéder à votre caméra.
         </Text>
         <Text style={styles.subtitle}>
-          {!permission.canAskAgain 
-            ? 'Vous avez refusé l\'accès. Veuillez l\'activer dans les paramètres de l\'application.'
-            : 'Appuyez sur le bouton ci-dessous pour autoriser l\'accès.'}
+          {!permission.canAskAgain
+            ? "Vous avez refusé l'accès. Veuillez l'activer dans les paramètres de l'application."
+            : "Appuyez sur le bouton ci-dessous pour autoriser l'accès."}
         </Text>
-        <TouchableOpacity 
-          style={[styles.button, isRequestingPermission && styles.buttonDisabled]} 
+        <TouchableOpacity
+          style={[styles.button, isRequestingPermission && styles.buttonDisabled]}
           onPress={handleRequestPermission}
           disabled={isRequestingPermission || !permission.canAskAgain}
         >
@@ -252,9 +337,83 @@ export default function ScannerScreen() {
     );
   }
 
+  // -------------------------------------------------------
+  // RENDU : Sélection d'aliments après photo
+  // -------------------------------------------------------
   if (photo && showFoodSelection) {
     return (
       <View style={styles.container}>
+        {/* Modal de remplacement d'aliment */}
+        <Modal
+          visible={replaceModalVisible}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setReplaceModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Changer l'aliment</Text>
+                <TouchableOpacity
+                  onPress={() => setReplaceModalVisible(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Ionicons name="close" size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Remplacer <Text style={styles.modalFoodName}>"{foodToReplace}"</Text> par :
+              </Text>
+
+              {/* Barre de recherche */}
+              <View style={styles.searchBar}>
+                <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Rechercher un aliment..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus={true}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Liste filtrée */}
+              <FlatList
+                data={filteredFoods}
+                keyExtractor={(item) => item}
+                style={styles.foodList}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.foodListItem}
+                    onPress={() => handleReplaceFood(item)}
+                  >
+                    <Text style={styles.foodListIcon}>{FOOD_DATABASE[item]?.icon || '🍽️'}</Text>
+                    <View style={styles.foodListInfo}>
+                      <Text style={styles.foodListName}>{item}</Text>
+                      <Text style={styles.foodListCalories}>
+                        {FOOD_DATABASE[item]?.calories ?? '?'} kcal/100g
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.noResultText}>Aucun aliment trouvé</Text>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Aperçu de la photo */}
         <View style={styles.imageContainer}>
           <Image source={{ uri: photo }} style={styles.previewImage} />
           <TouchableOpacity style={styles.closeButton} onPress={resetScanner}>
@@ -274,7 +433,7 @@ export default function ScannerScreen() {
                 <>
                   <Text style={styles.sectionTitle}>Aliments détectés</Text>
                   <Text style={styles.sectionSubtitle}>
-                    Les aliments suivants ont été reconnus automatiquement. Ajustez les portions si nécessaire.
+                    Les aliments suivants ont été reconnus automatiquement. Appuyez sur ✏️ Changer si l'identification est incorrecte.
                   </Text>
                   <View style={styles.foodGrid}>
                     {detectedFoods.map((foodName) => {
@@ -291,6 +450,7 @@ export default function ScannerScreen() {
                           portion={portion}
                           onToggle={() => toggleFood(foodName)}
                           onPortionChange={(text) => updatePortion(foodName, text)}
+                          onReplace={() => openReplaceModal(foodName)}
                         />
                       );
                     })}
@@ -305,7 +465,7 @@ export default function ScannerScreen() {
               <View style={styles.manualAddSection}>
                 <View style={styles.manualAddHeader}>
                   <Text style={styles.sectionTitle}>
-                    {detectedFoods.length > 0 ? 'Ajouter d\'autres aliments' : 'Sélectionnez les aliments visibles'}
+                    {detectedFoods.length > 0 ? "Ajouter d'autres aliments" : 'Sélectionnez les aliments visibles'}
                   </Text>
                   <TouchableOpacity
                     style={styles.toggleManualButton}
@@ -340,6 +500,7 @@ export default function ScannerScreen() {
                             portion={portion}
                             onToggle={() => toggleFood(foodName)}
                             onPortionChange={(text) => updatePortion(foodName, text)}
+                          // Pas de onReplace pour les aliments ajoutés manuellement
                           />
                         );
                       })}
@@ -381,64 +542,70 @@ export default function ScannerScreen() {
     );
   }
 
+  // -------------------------------------------------------
+  // RENDU : Caméra
+  // -------------------------------------------------------
   return (
     <View style={styles.container}>
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={facing}
-        onCameraReady={() => {
-          setCameraReady(true);
-        }}
-        onMountError={(error) => {
-          console.error('Erreur de montage de la caméra:', error);
-          setCameraReady(false);
-          Alert.alert('Erreur', 'Impossible d\'initialiser la caméra. Veuillez réessayer.');
-        }}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.scanFrame} />
-          <Text style={styles.instructionText}>
-            Placez votre repas dans le cadre
-          </Text>
+      {cameraActive && (
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing={facing}
+          onCameraReady={() => setCameraReady(true)}
+          onMountError={(error) => {
+            console.error('Erreur de montage de la caméra:', error);
+            setCameraReady(false);
+            Alert.alert('Erreur', "Impossible d'initialiser la caméra. Veuillez réessayer.");
+          }}
+        >
+          <View style={styles.overlay}>
+            <View style={styles.scanFrame} />
+            <Text style={styles.instructionText}>
+              Placez votre repas dans le cadre
+            </Text>
+          </View>
+
+          <View style={styles.controls}>
+            <TouchableOpacity style={styles.controlButton} onPress={pickImage}>
+              <Ionicons name="images-outline" size={30} color={colors.text} />
+              <Text style={styles.controlButtonText}>Galerie</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.captureButton,
+                (isTakingPicture || !cameraReady) && styles.captureButtonDisabled,
+              ]}
+              onPress={takePicture}
+              disabled={isTakingPicture || !cameraReady}
+            >
+              <View style={styles.captureButtonInner} />
+              {isTakingPicture && (
+                <View style={styles.captureButtonLoading}>
+                  <ActivityIndicator size="small" color={colors.cardBackground} />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.controlButton}
+              onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
+            >
+              <Ionicons name="camera-reverse-outline" size={30} color={colors.text} />
+              <Text style={styles.controlButtonText}>Retourner</Text>
+            </TouchableOpacity>
+          </View>
+        </CameraView>
+      )}
+
+      {/* Indicateur si la caméra n'est pas encore prête */}
+      {cameraActive && !cameraReady && (
+        <View style={styles.cameraLoadingOverlay}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.cameraLoadingText}>Démarrage de la caméra...</Text>
         </View>
-
-        <View style={styles.controls}>
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={pickImage}
-          >
-            <Ionicons name="images-outline" size={30} color={colors.text} />
-            <Text style={styles.controlButtonText}>Galerie</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.captureButton,
-              (isTakingPicture || !cameraReady) && styles.captureButtonDisabled
-            ]}
-            onPress={takePicture}
-            disabled={isTakingPicture || !cameraReady}
-          >
-            <View style={styles.captureButtonInner} />
-            {isTakingPicture && (
-              <View style={styles.captureButtonLoading}>
-                <ActivityIndicator size="small" color={colors.cardBackground} />
-              </View>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.controlButton}
-            onPress={() =>
-              setFacing(facing === 'back' ? 'front' : 'back')
-            }
-          >
-            <Ionicons name="camera-reverse-outline" size={30} color={colors.text} />
-            <Text style={styles.controlButtonText}>Retourner</Text>
-          </TouchableOpacity>
-        </View>
-      </CameraView>
+      )}
     </View>
   );
 }
@@ -570,9 +737,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cameraLoadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraLoadingText: {
+    color: colors.textSecondary,
+    marginTop: 15,
+    fontSize: 16,
+  },
   imageContainer: {
     position: 'relative',
-    height: 300,
+    height: 260,
   },
   previewImage: {
     width: '100%',
@@ -601,6 +783,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 20,
+    lineHeight: 20,
   },
   foodGrid: {
     flexDirection: 'row',
@@ -675,5 +858,95 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-});
 
+  // --- Modal de remplacement ---
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: colors.cardBackground,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 30,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 16,
+  },
+  modalFoodName: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 15,
+    padding: 0,
+  },
+  foodList: {
+    flexGrow: 0,
+  },
+  foodListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: 12,
+  },
+  foodListIcon: {
+    fontSize: 28,
+  },
+  foodListInfo: {
+    flex: 1,
+  },
+  foodListName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  foodListCalories: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  noResultText: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 15,
+    paddingVertical: 30,
+  },
+});

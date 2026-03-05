@@ -1,0 +1,71 @@
+==========================================
+URIs À COPIER-COLLER DANS GOOGLE CLOUD CONSOLE
+==========================================
+
+1. ORIGINES JAVASCRIPT AUTORISÉES
+   (Authorized JavaScript Origins)
+   ====================================
+   
+   Copiez ces URLs une par une dans le champ "URI 1", "URI 2", etc. :
+
+http://localhost:8081
+http://localhost:19006
+https://auth.expo.io
+
+
+2. URI DE REDIRECTION AUTORISÉS
+   (Authorized Redirect URIs)
+   ====================================
+   
+   Copiez ces URLs une par une dans le champ "URI 1", "URI 2", etc. :
+
+https://auth.expo.io/@anonymous/game-changer
+game-changer://oauth
+game-changer://oauth/callback
+exp://localhost:8081
+http://localhost:8081
+http://localhost:19006
+http://localhost:8081/auth/google/callback
+
+
+==========================================
+INSTRUCTIONS RAPIDES
+==========================================
+
+1. Allez sur : https://console.cloud.google.com/apis/credentials
+
+2. Cliquez sur votre OAuth 2.0 Client ID :
+   564218034454-fkrsio2ktonquoejo5nf4acrb660btqh.apps.googleusercontent.com
+
+3. Dans "Origines JavaScript autorisées" :
+   - Cliquez sur "Ajouter un URI" pour chaque URL de la section 1
+   - Copiez-collez chaque URL
+
+4. Dans "URI de redirection autorisés" :
+   - Cliquez sur "Ajouter un URI" pour chaque URL de la section 2
+   - Copiez-collez chaque URL
+
+5. Cliquez sur "Enregistrer" (Save)
+
+
+==========================================
+URLS FORMATÉES POUR COPIER-COLLER
+==========================================
+
+ORIGINES JAVASCRIPT (3 URLs) :
+-------------------------------
+http://localhost:8081
+http://localhost:19006
+https://auth.expo.io
+
+
+REDIRECT URIs (7 URLs) :
+-------------------------
+https://auth.expo.io/@anonymous/game-changer
+game-changer://oauth
+game-changer://oauth/callback
+exp://localhost:8081
+http://localhost:8081
+http://localhost:19006
+http://localhost:8081/auth/google/callback
+

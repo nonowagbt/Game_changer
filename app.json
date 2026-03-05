@@ -18,23 +18,57 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Cette application a besoin d'accéder à votre caméra pour scanner vos repas et estimer les calories.",
-        "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour sélectionner une image de repas."
-      }
+        "NSPhotoLibraryUsageDescription": "Cette application a besoin d'accéder à vos photos pour sélectionner une image de repas.",
+        "NSLocationWhenInUseUsageDescription": "Cette application utilise votre position GPS pour calculer la distance parcourue lors de vos courses.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Cette application utilise votre position GPS pour calculer la distance parcourue lors de vos courses.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
+      },
+      "bundleIdentifier": "com.gamechanger.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.gamechanger.app",
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "RECEIVE_BOOT_COMPLETED",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#4ADE80",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Cette application utilise votre GPS pour suivre vos courses.",
+          "locationWhenInUsePermission": "Cette application utilise votre GPS pour suivre vos courses."
+        }
+      ]
+    ],
+    "scheme": "game-changer",
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "googleClientId": "564218034454-fkrsio2ktonquoejo5nf4acrb660btqh.apps.googleusercontent.com"
     }
   }
 }
-
