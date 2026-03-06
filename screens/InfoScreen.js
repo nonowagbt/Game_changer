@@ -22,8 +22,10 @@ import {
 } from '../utils/goalCalculator';
 import ProfileImagePicker from '../components/ProfileImagePicker';
 import BodyAnalysisCard from '../components/BodyAnalysisCard';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function InfoScreen({ refreshAuth }) {
+  const { t } = useLanguage();
   const navigation = useNavigation();
   const [activeTab, setActiveTab] = useState('personal'); // 'personal', 'measurements', 'goals'
 
@@ -214,8 +216,8 @@ export default function InfoScreen({ refreshAuth }) {
       });
       await saveDailyGoals(newGoals);
       Alert.alert(
-        'Programme appliqué',
-        `Objectifs mis à jour pour "${getProgramName(program)}"`
+        language === 'fr' ? 'Programme appliqué' : language === 'en' ? 'Program applied' : 'Programa aplicado',
+        language === 'fr' ? `Objectifs mis à jour pour "${getProgramName(program)}"` : language === 'en' ? `Goals updated for "${getProgramName(program)}"` : `Objetivos actualizados para "${getProgramName(program)}"`
       );
     }
   };
@@ -227,17 +229,26 @@ export default function InfoScreen({ refreshAuth }) {
     const weeklyGym = goalsForm.weeklyGym ? parseInt(goalsForm.weeklyGym) : null;
 
     if (isNaN(water) || water <= 0) {
-      Alert.alert('Erreur', 'Veuillez entrer un objectif d\'eau valide');
+      Alert.alert(
+        language === 'fr' ? 'Erreur' : language === 'en' ? 'Error' : 'Error',
+        language === 'fr' ? "Veuillez entrer un objectif d'eau valide" : language === 'en' ? 'Please enter a valid water goal' : 'Por favor ingrese un objetivo de agua válido'
+      );
       return;
     }
 
     if (isNaN(calories) || calories <= 0) {
-      Alert.alert('Erreur', 'Veuillez entrer un objectif de calories valide');
+      Alert.alert(
+        language === 'fr' ? 'Erreur' : language === 'en' ? 'Error' : 'Error',
+        language === 'fr' ? 'Veuillez entrer un objectif de calories valide' : language === 'en' ? 'Please enter a valid calorie goal' : 'Por favor ingrese un objetivo de calorías válido'
+      );
       return;
     }
 
     if (weeklyGym !== null && (isNaN(weeklyGym) || weeklyGym <= 0)) {
-      Alert.alert('Erreur', 'Veuillez entrer un objectif hebdomadaire de salle valide');
+      Alert.alert(
+        language === 'fr' ? 'Erreur' : language === 'en' ? 'Error' : 'Error',
+        language === 'fr' ? 'Veuillez entrer un objectif hebdomadaire de salle valide' : language === 'en' ? 'Please enter a valid weekly gym goal' : 'Por favor ingrese un objetivo semanal de gimnasio válido'
+      );
       return;
     }
 
@@ -253,7 +264,10 @@ export default function InfoScreen({ refreshAuth }) {
     }
 
     setEditingGoals(false);
-    Alert.alert('Succès', 'Objectifs mis à jour');
+    Alert.alert(
+      language === 'fr' ? 'Succès' : language === 'en' ? 'Success' : 'Éxito',
+      language === 'fr' ? 'Objectifs mis à jour' : language === 'en' ? 'Goals updated' : 'Objetivos actualizados'
+    );
   };
 
   const calculateBMI = () => {
@@ -724,9 +738,9 @@ export default function InfoScreen({ refreshAuth }) {
     <View style={styles.tabContent}>
       {/* Sélection du programme */}
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Programme</Text>
+        <Text style={styles.cardTitle}>{language === 'fr' ? 'Programme' : language === 'en' ? 'Program' : 'Programa'}</Text>
         <Text style={styles.cardSubtitle}>
-          Choisissez votre objectif pour calculer automatiquement vos besoins
+          {language === 'fr' ? 'Choisissez votre objectif pour calculer automatiquement vos besoins' : language === 'en' ? 'Choose your goal to automatically calculate your needs' : 'Elige tu objetivo para calcular automáticamente tus necesidades'}
         </Text>
 
         <View style={styles.programContainer}>
@@ -747,13 +761,13 @@ export default function InfoScreen({ refreshAuth }) {
                 styles.programButtonText,
                 selectedProgram === 'maintain' && styles.programButtonTextActive,
               ]}>
-                Se maintenir
+                {language === 'fr' ? 'Se maintenir' : language === 'en' ? 'Maintain weight' : 'Mantener peso'}
               </Text>
               <Text style={[
                 styles.programDescription,
                 selectedProgram === 'maintain' && styles.programDescriptionActive,
               ]}>
-                Équilibre calorique
+                {language === 'fr' ? 'Équilibre calorique' : language === 'en' ? 'Caloric balance' : 'Equilibrio calórico'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -775,13 +789,13 @@ export default function InfoScreen({ refreshAuth }) {
                 styles.programButtonText,
                 selectedProgram === 'weight_loss' && styles.programButtonTextActive,
               ]}>
-                Perte de poids
+                {language === 'fr' ? 'Perte de poids' : language === 'en' ? 'Weight loss' : 'Pérdida de peso'}
               </Text>
               <Text style={[
                 styles.programDescription,
                 selectedProgram === 'weight_loss' && styles.programDescriptionActive,
               ]}>
-                Déficit calorique
+                {language === 'fr' ? 'Déficit calorique' : language === 'en' ? 'Caloric deficit' : 'Déficit calórico'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -803,13 +817,13 @@ export default function InfoScreen({ refreshAuth }) {
                 styles.programButtonText,
                 selectedProgram === 'weight_gain' && styles.programButtonTextActive,
               ]}>
-                Prise de masse
+                {language === 'fr' ? 'Prise de masse' : language === 'en' ? 'Weight gain' : 'Ganancia de peso'}
               </Text>
               <Text style={[
                 styles.programDescription,
                 selectedProgram === 'weight_gain' && styles.programDescriptionActive,
               ]}>
-                Surplus calorique
+                {language === 'fr' ? 'Surplus calorique' : language === 'en' ? 'Caloric surplus' : 'Superávit calórico'}
               </Text>
             </View>
           </TouchableOpacity>
@@ -822,7 +836,11 @@ export default function InfoScreen({ refreshAuth }) {
             </Text>
             {(!measurements.weight || !measurements.height) && (
               <Text style={styles.programWarning}>
-                ⚠️ Renseignez votre poids et taille pour calculer vos objectifs
+                {language === 'fr'
+                  ? '⚠️ Renseignez votre poids et taille pour calculer vos objectifs'
+                  : language === 'en'
+                    ? '⚠️ Enter your weight and height to calculate your goals'
+                    : '⚠️ Ingresa tu peso y altura para calcular tus objetivos'}
               </Text>
             )}
           </View>
@@ -830,12 +848,12 @@ export default function InfoScreen({ refreshAuth }) {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>Objectifs quotidiens</Text>
+        <Text style={styles.cardTitle}>{language === 'fr' ? 'Objectifs quotidiens' : language === 'en' ? 'Daily goals' : 'Objetivos diarios'}</Text>
 
         {editingGoals ? (
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Eau (litres)</Text>
+              <Text style={styles.label}>{language === 'fr' ? 'Eau (litres)' : language === 'en' ? 'Water (liters)' : 'Agua (litros)'}</Text>
               <TextInput
                 style={styles.input}
                 value={goalsForm.water}
@@ -843,12 +861,12 @@ export default function InfoScreen({ refreshAuth }) {
                   setGoalsForm({ ...goalsForm, water: text })
                 }
                 keyboardType="numeric"
-                placeholder="Ex: 2"
+                placeholder={language === 'fr' ? 'Ex: 2' : language === 'en' ? 'e.g. 2' : 'Ej: 2'}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Calories</Text>
+              <Text style={styles.label}>{language === 'fr' ? 'Calories' : language === 'en' ? 'Calories' : 'Calorías'}</Text>
               <TextInput
                 style={styles.input}
                 value={goalsForm.calories}
@@ -856,12 +874,12 @@ export default function InfoScreen({ refreshAuth }) {
                   setGoalsForm({ ...goalsForm, calories: text })
                 }
                 keyboardType="numeric"
-                placeholder="Ex: 2000"
+                placeholder={language === 'fr' ? 'Ex: 2000' : language === 'en' ? 'e.g. 2000' : 'Ej: 2000'}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Salle (fois par semaine)</Text>
+              <Text style={styles.label}>{language === 'fr' ? 'Salle (fois par semaine)' : language === 'en' ? 'Gym (times per week)' : 'Gimnasio (veces por semana)'}</Text>
               <TextInput
                 style={styles.input}
                 value={goalsForm.weeklyGym}
@@ -869,7 +887,7 @@ export default function InfoScreen({ refreshAuth }) {
                   setGoalsForm({ ...goalsForm, weeklyGym: text })
                 }
                 keyboardType="numeric"
-                placeholder="Ex: 4"
+                placeholder={language === 'fr' ? 'Ex: 4' : language === 'en' ? 'e.g. 4' : 'Ej: 4'}
               />
             </View>
 
@@ -881,13 +899,13 @@ export default function InfoScreen({ refreshAuth }) {
                   loadData();
                 }}
               >
-                <Text style={styles.cancelButtonText}>Annuler</Text>
+                <Text style={styles.cancelButtonText}>{t.common.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.saveButton]}
                 onPress={handleSaveGoals}
               >
-                <Text style={styles.saveButtonText}>Enregistrer</Text>
+                <Text style={styles.saveButtonText}>{t.common.save}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -896,9 +914,9 @@ export default function InfoScreen({ refreshAuth }) {
             <View style={styles.infoRow}>
               <Ionicons name="water" size={24} color="#3B82F6" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Eau quotidienne</Text>
+                <Text style={styles.infoLabel}>{language === 'fr' ? 'Eau quotidienne' : language === 'en' ? 'Daily water' : 'Agua diaria'}</Text>
                 <Text style={styles.infoValue}>
-                  {goals.water} litres
+                  {goals.water} {language === 'fr' ? 'litres' : language === 'en' ? 'liters' : 'litros'}
                 </Text>
               </View>
             </View>
@@ -906,7 +924,7 @@ export default function InfoScreen({ refreshAuth }) {
             <View style={styles.infoRow}>
               <Ionicons name="flame" size={24} color="#EF4444" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Calories quotidiennes</Text>
+                <Text style={styles.infoLabel}>{language === 'fr' ? 'Calories quotidiennes' : language === 'en' ? 'Daily calories' : 'Calorías diarias'}</Text>
                 <Text style={styles.infoValue}>
                   {goals.calories} kcal
                 </Text>
@@ -916,9 +934,9 @@ export default function InfoScreen({ refreshAuth }) {
             <View style={styles.infoRow}>
               <Ionicons name="barbell" size={24} color="#8B5CF6" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Salle (par semaine)</Text>
+                <Text style={styles.infoLabel}>{language === 'fr' ? 'Salle (par semaine)' : language === 'en' ? 'Gym (per week)' : 'Gimnasio (por semana)'}</Text>
                 <Text style={styles.infoValue}>
-                  {weeklyGymGoal?.goal ? `${weeklyGymGoal.goal} fois` : 'Non défini'}
+                  {weeklyGymGoal?.goal ? `${weeklyGymGoal.goal} ${language === 'fr' ? 'fois' : language === 'en' ? 'times' : 'veces'}` : (language === 'fr' ? 'Non défini' : language === 'en' ? 'Not set' : 'No definido')}
                 </Text>
               </View>
             </View>
@@ -928,7 +946,7 @@ export default function InfoScreen({ refreshAuth }) {
               onPress={() => setEditingGoals(true)}
             >
               <Ionicons name="create-outline" size={20} color={colors.primary} />
-              <Text style={styles.editButtonText}>Modifier</Text>
+              <Text style={styles.editButtonText}>{t.profile.modify}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -968,7 +986,7 @@ export default function InfoScreen({ refreshAuth }) {
         {/* Icône de réglages en haut à droite */}
         <View style={styles.headerTopBar}>
           <View style={styles.headerTopBarSpacer} />
-          <Text style={styles.headerTitle}>Mes Informations</Text>
+          <Text style={styles.headerTitle}>{t.profile.myInfo}</Text>
           <TouchableOpacity
             style={styles.settingsIconButton}
             onPress={() => navigation.navigate('Settings')}
@@ -1008,7 +1026,7 @@ export default function InfoScreen({ refreshAuth }) {
             styles.tabText,
             activeTab === 'personal' && styles.activeTabText
           ]}>
-            Personnelles
+            {t.profile.personal}
           </Text>
         </TouchableOpacity>
 
@@ -1025,7 +1043,7 @@ export default function InfoScreen({ refreshAuth }) {
             styles.tabText,
             activeTab === 'measurements' && styles.activeTabText
           ]}>
-            Mensurations
+            {t.profile.measurements}
           </Text>
         </TouchableOpacity>
 
@@ -1042,7 +1060,7 @@ export default function InfoScreen({ refreshAuth }) {
             styles.tabText,
             activeTab === 'goals' && styles.activeTabText
           ]}>
-            Objectifs
+            {t.profile.goals}
           </Text>
         </TouchableOpacity>
       </View>
