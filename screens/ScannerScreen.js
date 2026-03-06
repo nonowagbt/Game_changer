@@ -22,11 +22,13 @@ import FoodItem from '../components/FoodItem';
 import CaloriesSummary, { calculateTotalCalories } from '../components/CaloriesSummary';
 import { recognizeFoods } from '../utils/imageRecognition';
 import { ActivityIndicator } from 'react-native';
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Liste complète des aliments pour la recherche
 const ALL_FOODS = Object.keys(FOOD_DATABASE);
 
 export default function ScannerScreen() {
+  const { t, language } = useLanguage();
   const [facing, setFacing] = useState('back');
   const [permission, requestPermission] = useCameraPermissions();
   const [photo, setPhoto] = useState(null);
@@ -296,7 +298,7 @@ export default function ScannerScreen() {
   if (!permission) {
     return (
       <View style={styles.permissionContainer}>
-        <Text style={styles.text}>Chargement des permissions...</Text>
+        <Text style={styles.text}>{language === 'fr' ? 'Chargement des permissions...' : language === 'en' ? 'Loading permissions...' : 'Cargando permisos...'}</Text>
       </View>
     );
   }
@@ -305,14 +307,14 @@ export default function ScannerScreen() {
     return (
       <View style={styles.permissionContainer}>
         <Ionicons name="camera-outline" size={80} color={colors.primary} />
-        <Text style={styles.title}>Accès à la caméra requis</Text>
+        <Text style={styles.title}>{language === 'fr' ? 'Accès à la caméra requis' : language === 'en' ? 'Camera access required' : 'Acceso a la cámara requerido'}</Text>
         <Text style={styles.subtitle}>
-          Pour scanner vos repas et estimer les calories, nous avons besoin d'accéder à votre caméra.
+          {language === 'fr' ? "Pour scanner vos repas et estimer les calories, nous avons besoin d'accéder à votre caméra." : language === 'en' ? 'To scan your meals and estimate calories, we need to access your camera.' : 'Para escanear tus comidas y estimar las calorías, necesitamos acceder a tu cámara.'}
         </Text>
         <Text style={styles.subtitle}>
           {!permission.canAskAgain
-            ? "Vous avez refusé l'accès. Veuillez l'activer dans les paramètres de l'application."
-            : "Appuyez sur le bouton ci-dessous pour autoriser l'accès."}
+            ? (language === 'fr' ? "Vous avez refusé l'accès. Veuillez l'activer dans les paramètres de l'application." : language === 'en' ? 'You have denied access. Please enable it in the app settings.' : 'Has denegado el acceso. Por favor apruébalo en los ajustes de la aplicación.')
+            : (language === 'fr' ? "Appuyez sur le bouton ci-dessous pour autoriser l'accès." : language === 'en' ? 'Tap the button below to allow access.' : 'Presiona el botón de abajo para permitir el acceso.')}
         </Text>
         <TouchableOpacity
           style={[styles.button, isRequestingPermission && styles.buttonDisabled]}
@@ -320,17 +322,17 @@ export default function ScannerScreen() {
           disabled={isRequestingPermission || !permission.canAskAgain}
         >
           {isRequestingPermission ? (
-            <Text style={styles.buttonText}>Demande en cours...</Text>
+            <Text style={styles.buttonText}>{language === 'fr' ? 'Demande en cours...' : language === 'en' ? 'Requesting...' : 'Solicitando...'}</Text>
           ) : (
             <>
               <Ionicons name="camera" size={20} color={colors.cardBackground} />
-              <Text style={styles.buttonText}>Autoriser la caméra</Text>
+              <Text style={styles.buttonText}>{language === 'fr' ? 'Autoriser la caméra' : language === 'en' ? 'Allow camera' : 'Permitir cámara'}</Text>
             </>
           )}
         </TouchableOpacity>
         {!permission.canAskAgain && (
           <Text style={styles.settingsHint}>
-            Allez dans Paramètres → Game Changer → Caméra pour activer l'accès
+            {language === 'fr' ? "Allez dans Paramètres → Game Changer → Caméra pour activer l'accès" : language === 'en' ? 'Go to Settings → Game Changer → Camera to enable access' : 'Ve a Ajustes → Game Changer → Cámara para habilitar el acceso'}
           </Text>
         )}
       </View>
@@ -353,7 +355,7 @@ export default function ScannerScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Changer l'aliment</Text>
+                <Text style={styles.modalTitle}>{language === 'fr' ? "Changer l'aliment" : language === 'en' ? 'Change food' : 'Cambiar alimento'}</Text>
                 <TouchableOpacity
                   onPress={() => setReplaceModalVisible(false)}
                   style={styles.modalCloseButton}
@@ -363,7 +365,9 @@ export default function ScannerScreen() {
               </View>
 
               <Text style={styles.modalSubtitle}>
-                Remplacer <Text style={styles.modalFoodName}>"{foodToReplace}"</Text> par :
+                {language === 'fr' ? 'Remplacer ' : language === 'en' ? 'Replace ' : 'Reemplazar '}
+                <Text style={styles.modalFoodName}>"{foodToReplace}"</Text>
+                {language === 'fr' ? ' par :' : language === 'en' ? ' with:' : ' con:'}
               </Text>
 
               {/* Barre de recherche */}
@@ -371,7 +375,7 @@ export default function ScannerScreen() {
                 <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Rechercher un aliment..."
+                  placeholder={language === 'fr' ? 'Rechercher un aliment...' : language === 'en' ? 'Search for food...' : 'Buscar alimento...'}
                   placeholderTextColor={colors.textTertiary}
                   value={searchQuery}
                   onChangeText={setSearchQuery}
@@ -406,7 +410,7 @@ export default function ScannerScreen() {
                   </TouchableOpacity>
                 )}
                 ListEmptyComponent={
-                  <Text style={styles.noResultText}>Aucun aliment trouvé</Text>
+                  <Text style={styles.noResultText}>{language === 'fr' ? 'Aucun aliment trouvé' : language === 'en' ? 'No food found' : 'Ningún alimento encontrado'}</Text>
                 }
               />
             </View>
@@ -425,15 +429,17 @@ export default function ScannerScreen() {
           {isRecognizing ? (
             <View style={styles.recognizingContainer}>
               <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={styles.recognizingText}>Reconnaissance des aliments en cours...</Text>
+              <Text style={styles.recognizingText}>
+                {language === 'fr' ? 'Reconnaissance des aliments en cours...' : language === 'en' ? 'Recognizing foods...' : 'Reconociendo alimentos...'}
+              </Text>
             </View>
           ) : (
             <>
               {detectedFoods.length > 0 ? (
                 <>
-                  <Text style={styles.sectionTitle}>Aliments détectés</Text>
+                  <Text style={styles.sectionTitle}>{language === 'fr' ? 'Aliments détectés' : language === 'en' ? 'Detected foods' : 'Alimentos detectados'}</Text>
                   <Text style={styles.sectionSubtitle}>
-                    Les aliments suivants ont été reconnus automatiquement. Appuyez sur ✏️ Changer si l'identification est incorrecte.
+                    {language === 'fr' ? "Les aliments suivants ont été reconnus automatiquement. Appuyez sur ✏️ Changer si l'identification est incorrecte." : language === 'en' ? "The following foods were recognized automatically. Tap ✏️ Change if the identification is incorrect." : "Los siguientes alimentos fueron reconocidos automáticamente. Toca ✏️ Cambiar si la identificación es incorrecta."}
                   </Text>
                   <View style={styles.foodGrid}>
                     {detectedFoods.map((foodName) => {
@@ -458,14 +464,16 @@ export default function ScannerScreen() {
                 </>
               ) : (
                 <Text style={styles.sectionSubtitle}>
-                  Aucun aliment détecté automatiquement. Ajoutez-les manuellement ci-dessous.
+                  {language === 'fr' ? 'Aucun aliment détecté automatiquement. Ajoutez-les manuellement ci-dessous.' : language === 'en' ? 'No food detected automatically. Add them manually below.' : 'Ningún alimento detectado automáticamente. Añádelos manualmente a continuación.'}
                 </Text>
               )}
 
               <View style={styles.manualAddSection}>
                 <View style={styles.manualAddHeader}>
                   <Text style={styles.sectionTitle}>
-                    {detectedFoods.length > 0 ? "Ajouter d'autres aliments" : 'Sélectionnez les aliments visibles'}
+                    {detectedFoods.length > 0
+                      ? (language === 'fr' ? "Ajouter d'autres aliments" : language === 'en' ? 'Add other foods' : 'Añadir otros alimentos')
+                      : (language === 'fr' ? 'Sélectionnez les aliments visibles' : language === 'en' ? 'Select visible foods' : 'Selecciona los alimentos visibles')}
                   </Text>
                   <TouchableOpacity
                     style={styles.toggleManualButton}
@@ -477,7 +485,11 @@ export default function ScannerScreen() {
                       color={colors.primary}
                     />
                     <Text style={styles.toggleManualText}>
-                      {showManualAdd ? 'Masquer' : 'Afficher'} tous les aliments
+                      {showManualAdd
+                        ? (language === 'fr' ? 'Masquer' : language === 'en' ? 'Hide' : 'Ocultar')
+                        : (language === 'fr' ? 'Afficher' : language === 'en' ? 'Show' : 'Mostrar')
+                      }
+                      {language === 'fr' ? ' tous les aliments' : language === 'en' ? ' all foods' : ' todos los alimentos'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -520,7 +532,7 @@ export default function ScannerScreen() {
               style={[styles.actionButton, styles.cancelButton]}
               onPress={resetScanner}
             >
-              <Text style={styles.cancelButtonText}>Annuler</Text>
+              <Text style={styles.cancelButtonText}>{language === 'fr' ? 'Annuler' : language === 'en' ? 'Cancel' : 'Cancelar'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -533,7 +545,7 @@ export default function ScannerScreen() {
             >
               <Ionicons name="add-circle" size={20} color={colors.cardBackground} />
               <Text style={styles.addButtonText}>
-                Ajouter {estimatedCalories} kcal
+                {language === 'fr' ? 'Ajouter ' : language === 'en' ? 'Add ' : 'Añadir '} {estimatedCalories} kcal
               </Text>
             </TouchableOpacity>
           </View>
@@ -562,14 +574,14 @@ export default function ScannerScreen() {
           <View style={styles.overlay}>
             <View style={styles.scanFrame} />
             <Text style={styles.instructionText}>
-              Placez votre repas dans le cadre
+              {language === 'fr' ? 'Placez votre repas dans le cadre' : language === 'en' ? 'Place your meal in the frame' : 'Coloca tu comida en el marco'}
             </Text>
           </View>
 
           <View style={styles.controls}>
             <TouchableOpacity style={styles.controlButton} onPress={pickImage}>
               <Ionicons name="images-outline" size={30} color={colors.text} />
-              <Text style={styles.controlButtonText}>Galerie</Text>
+              <Text style={styles.controlButtonText}>{language === 'fr' ? 'Galerie' : language === 'en' ? 'Gallery' : 'Galería'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -593,7 +605,7 @@ export default function ScannerScreen() {
               onPress={() => setFacing(facing === 'back' ? 'front' : 'back')}
             >
               <Ionicons name="camera-reverse-outline" size={30} color={colors.text} />
-              <Text style={styles.controlButtonText}>Retourner</Text>
+              <Text style={styles.controlButtonText}>{language === 'fr' ? 'Retourner' : language === 'en' ? 'Flip' : 'Girar'}</Text>
             </TouchableOpacity>
           </View>
         </CameraView>
@@ -603,7 +615,9 @@ export default function ScannerScreen() {
       {cameraActive && !cameraReady && (
         <View style={styles.cameraLoadingOverlay}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.cameraLoadingText}>Démarrage de la caméra...</Text>
+          <Text style={styles.cameraLoadingText}>
+            {language === 'fr' ? 'Démarrage de la caméra...' : language === 'en' ? 'Starting camera...' : 'Iniciando cámara...'}
+          </Text>
         </View>
       )}
     </View>
