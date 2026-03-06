@@ -18,6 +18,8 @@ import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors } from '../theme/colors';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { LANGUAGES } from '../i18n/translations';
 import { signOut, getCurrentUser, changePassword, getNextPasswordChangeDate } from '../utils/auth';
 import { getUserInfo, getWorkouts, getDailyGoals, getDailyProgress, getBlockedUsers, unblockUser } from '../utils/db';
 import {
@@ -32,6 +34,8 @@ const SETTINGS_STORAGE_KEY = 'app_settings';
 export default function SettingsScreen({ refreshAuth }) {
   const navigation = useNavigation();
   const { isDark, toggleTheme } = useTheme();
+  const { language, t, setLanguage } = useLanguage();
+  const tr = t.settings;
 
   // Paramètres
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -311,19 +315,19 @@ export default function SettingsScreen({ refreshAuth }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Réglages</Text>
+        <Text style={s.headerTitle}>{tr.title}</Text>
         <View style={{ width: 34 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
 
         {/* ── Thème ─────────────────────────────── */}
-        <Text style={s.sectionTitle}>Apparence</Text>
+        <Text style={s.sectionTitle}>{tr.appearance}</Text>
         <View style={s.themeCard}>
           <View style={[s.item, { paddingBottom: 8 }]}>
             <View style={s.itemLeft}>
               <Ionicons name="color-palette-outline" size={22} color={colors.textSecondary} style={s.itemIcon} />
-              <Text style={s.itemTitle}>Thème de l'application</Text>
+              <Text style={s.itemTitle}>{tr.theme}</Text>
             </View>
           </View>
           <View style={s.themeRow}>
@@ -332,15 +336,35 @@ export default function SettingsScreen({ refreshAuth }) {
               onPress={() => !isDark && toggleTheme()}
             >
               <Ionicons name="moon" size={18} color={isDark ? colors.primary : colors.textSecondary} />
-              <Text style={[s.themeBtnText, isDark && s.themeBtnTextActive]}>Sombre</Text>
+              <Text style={[s.themeBtnText, isDark && s.themeBtnTextActive]}>{tr.dark}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[s.themeBtn, !isDark && s.themeBtnActive]}
               onPress={() => isDark && toggleTheme()}
             >
               <Ionicons name="sunny" size={18} color={!isDark ? colors.primary : colors.textSecondary} />
-              <Text style={[s.themeBtnText, !isDark && s.themeBtnTextActive]}>Clair</Text>
+              <Text style={[s.themeBtnText, !isDark && s.themeBtnTextActive]}>{tr.light}</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* ── Langue ── */}
+          <View style={[s.item, { paddingTop: 12, paddingBottom: 4, borderTopWidth: 1, borderTopColor: colors.border, marginTop: 8 }]}>
+            <View style={s.itemLeft}>
+              <Ionicons name="language-outline" size={22} color={colors.textSecondary} style={s.itemIcon} />
+              <Text style={s.itemTitle}>{tr.language}</Text>
+            </View>
+          </View>
+          <View style={[s.themeRow, { marginBottom: 10 }]}>
+            {LANGUAGES.map(({ code, label, flag }) => (
+              <TouchableOpacity
+                key={code}
+                style={[s.themeBtn, { flex: 1 }, language === code && s.themeBtnActive]}
+                onPress={() => setLanguage(code)}
+              >
+                <Text style={{ fontSize: 18 }}>{flag}</Text>
+                <Text style={[s.themeBtnText, language === code && s.themeBtnTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -348,23 +372,23 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={s.divider} />
 
         {/* ── Notifications ─────────────────────── */}
-        <Text style={s.sectionTitle}>Notifications</Text>
-        {renderSwitch('notifications-outline', 'Notifications', 'Activer les notifications push', notificationsEnabled, setNotificationsEnabled)}
+        <Text style={s.sectionTitle}>{tr.notifications}</Text>
+        {renderSwitch('notifications-outline', tr.notifications, null, notificationsEnabled, setNotificationsEnabled)}
         <View style={s.divider} />
-        {renderSwitch('barbell-outline', 'Entraînements', 'Notifier pour les entraînements', notificationsWorkouts, setNotificationsWorkouts)}
+        {renderSwitch('barbell-outline', t.workout.programmes, null, notificationsWorkouts, setNotificationsWorkouts)}
         <View style={s.divider} />
         {renderSwitch(
           'flag-outline',
-          'Objectifs quotidiens',
-          'Rappel à 21h si objectifs non atteints',
+          tr.goalReminder,
+          tr.goalReminderSub,
           notificationsGoals,
           handleToggleGoalNotifications
         )}
         <View style={s.divider} />
         {renderItem(
           'paper-plane-outline',
-          'Tester la notification objectifs',
-          'Envoie une vérification immédiate',
+          tr.testNotif,
+          null,
           handleTestNotification
         )}
 
@@ -372,13 +396,13 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={s.divider} />
 
         {/* ── Sécurité ──────────────────────────── */}
-        <Text style={s.sectionTitle}>Sécurité</Text>
+        <Text style={s.sectionTitle}>{tr.security}</Text>
         {renderItem(
           'lock-closed-outline',
-          'Mot de passe',
+          tr.changePasswordTitle,
           nextPasswordChangeDate
-            ? `Prochain changement le ${nextPasswordChangeDate.toLocaleDateString('fr-FR')}`
-            : 'Modifier votre mot de passe',
+            ? `Prochain changement le ${nextPasswordChangeDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'en' ? 'en-US' : 'es-ES')}`
+            : tr.changePassword,
           () => { setPasswordModalVisible(true); setOldPassword(''); setNewPassword(''); setConfirmPassword(''); }
         )}
 
@@ -386,35 +410,35 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={s.divider} />
 
         {/* ── Profil & Confidentialité ──────────── */}
-        <Text style={s.sectionTitle}>Profil & Confidentialité</Text>
+        <Text style={s.sectionTitle}>{tr.privacy}</Text>
         {renderSwitch(
           'person-circle-outline',
-          'Profil public',
-          'Rendre votre profil visible par les autres utilisateurs',
+          language === 'fr' ? 'Profil public' : language === 'en' ? 'Public profile' : 'Perfil público',
+          null,
           publicProfile,
           setPublicProfile
         )}
         <View style={s.divider} />
-        {renderItem('ban-outline', 'Utilisateurs bloqués', 'Gérer les utilisateurs bloqués', handleOpenBlocked)}
+        {renderItem('ban-outline', tr.blockedUsersTitle, null, handleOpenBlocked)}
 
         <View style={s.sectionGap} />
         <View style={s.divider} />
 
         {/* ── Application ───────────────────────── */}
-        <Text style={s.sectionTitle}>Application et données</Text>
-        {renderItem('download-outline', 'Exporter mes données', 'Télécharger vos données personnelles', handleExportData)}
+        <Text style={s.sectionTitle}>{tr.data}</Text>
+        {renderItem('download-outline', tr.exportData, null, handleExportData)}
         <View style={s.divider} />
-        {renderItem('shield-checkmark-outline', 'Confidentialité', null, () => Alert.alert('Confidentialité', "Vos données sont stockées localement sur votre appareil."))}
+        {renderItem('shield-checkmark-outline', language === 'fr' ? 'Confidentialité' : language === 'en' ? 'Privacy' : 'Privacidad', null, () => Alert.alert(language === 'fr' ? 'Confidentialité' : 'Privacy', language === 'fr' ? "Vos données sont stockées localement sur votre appareil." : "Your data is stored locally on your device."))}
         <View style={s.divider} />
-        {renderItem('help-circle-outline', "Centre d'aide", null, () => Alert.alert("Centre d'aide", 'Contactez-nous à support@gamechangerapp.com'))}
+        {renderItem('help-circle-outline', language === 'fr' ? "Centre d'aide" : language === 'en' ? 'Help Center' : 'Centro de ayuda', null, () => Alert.alert(language === 'fr' ? "Centre d'aide" : 'Help Center', 'Contactez-nous à support@gamechangerapp.com'))}
         <View style={s.divider} />
         {renderItem(
           'trash-outline',
-          'Supprimer le compte',
+          tr.deleteAccount,
           null,
-          () => Alert.alert('Supprimer le compte', 'Êtes-vous sûr ? Cette action est irréversible.', [
-            { text: 'Annuler', style: 'cancel' },
-            { text: 'Supprimer', style: 'destructive', onPress: () => Alert.alert('À venir', 'Fonctionnalité bientôt disponible.') },
+          () => Alert.alert(tr.deleteAccount, language === 'fr' ? 'Êtes-vous sûr ? Cette action est irréversible.' : 'Are you sure? This action is irreversible.', [
+            { text: t.common.cancel, style: 'cancel' },
+            { text: t.common.delete, style: 'destructive' },
           ])
         )}
 
@@ -422,18 +446,18 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={{ paddingVertical: 20 }}>
           <TouchableOpacity
             style={s.logoutBtn}
-            onPress={() => Alert.alert('Déconnexion', 'Voulez-vous vous déconnecter ?', [
-              { text: 'Annuler', style: 'cancel' },
+            onPress={() => Alert.alert(tr.logout, tr.logoutConfirm, [
+              { text: t.common.cancel, style: 'cancel' },
               {
-                text: 'Déconnecter', style: 'destructive', onPress: async () => {
+                text: tr.logout, style: 'destructive', onPress: async () => {
                   try { await signOut(); if (refreshAuth) refreshAuth(); }
-                  catch (_) { Alert.alert('Erreur', 'Impossible de se déconnecter'); }
+                  catch (_) { Alert.alert(t.common.error, ''); }
                 }
               }
             ])}
           >
             <Ionicons name="log-out-outline" size={20} color={colors.error} />
-            <Text style={s.logoutText}>Se déconnecter</Text>
+            <Text style={s.logoutText}>{tr.logout}</Text>
           </TouchableOpacity>
         </View>
 
@@ -445,7 +469,7 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={s.modalOverlay}>
           <View style={s.modalBox}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Changer le mot de passe</Text>
+              <Text style={s.modalTitle}>{tr.changePasswordTitle}</Text>
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -454,14 +478,14 @@ export default function SettingsScreen({ refreshAuth }) {
               {nextPasswordChangeDate && new Date() < nextPasswordChangeDate && (
                 <View style={{ backgroundColor: colors.warning + '20', padding: 14, borderRadius: 10, borderLeftWidth: 3, borderLeftColor: colors.warning, marginBottom: 16 }}>
                   <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
-                    Prochain changement possible le {nextPasswordChangeDate.toLocaleDateString('fr-FR')}
+                    {language === 'fr' ? 'Prochain changement possible le ' : language === 'en' ? 'Next change possible on ' : 'Próximo cambio posible el '}{nextPasswordChangeDate.toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'en' ? 'en-US' : 'es-ES')}
                   </Text>
                 </View>
               )}
               {[
-                { label: 'Ancien mot de passe', value: oldPassword, setter: setOldPassword, show: showOldPassword, toggle: () => setShowOldPassword(v => !v) },
-                { label: 'Nouveau mot de passe', value: newPassword, setter: setNewPassword, show: showNewPassword, toggle: () => setShowNewPassword(v => !v) },
-                { label: 'Confirmer le mot de passe', value: confirmPassword, setter: setConfirmPassword, show: showConfirmPassword, toggle: () => setShowConfirmPassword(v => !v) },
+                { label: tr.oldPassword, value: oldPassword, setter: setOldPassword, show: showOldPassword, toggle: () => setShowOldPassword(v => !v) },
+                { label: tr.newPassword, value: newPassword, setter: setNewPassword, show: showNewPassword, toggle: () => setShowNewPassword(v => !v) },
+                { label: tr.confirmPassword, value: confirmPassword, setter: setConfirmPassword, show: showConfirmPassword, toggle: () => setShowConfirmPassword(v => !v) },
               ].map(({ label, value, setter, show, toggle }) => (
                 <View key={label} style={{ marginBottom: 16 }}>
                   <Text style={s.label}>{label}</Text>
@@ -483,14 +507,14 @@ export default function SettingsScreen({ refreshAuth }) {
               ))}
               <View style={s.modalBtns}>
                 <TouchableOpacity style={[s.modalBtn, s.modalBtnCancel]} onPress={() => setPasswordModalVisible(false)}>
-                  <Text style={s.modalBtnCancelText}>Annuler</Text>
+                  <Text style={s.modalBtnCancelText}>{tr.cancel}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[s.modalBtn, s.modalBtnSave, isChangingPassword && { opacity: 0.6 }]}
                   onPress={handleChangePassword}
                   disabled={isChangingPassword}
                 >
-                  <Text style={s.modalBtnSaveText}>{isChangingPassword ? 'Modification...' : 'Enregistrer'}</Text>
+                  <Text style={s.modalBtnSaveText}>{isChangingPassword ? tr.saving : tr.save}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -503,7 +527,7 @@ export default function SettingsScreen({ refreshAuth }) {
         <View style={s.modalOverlay}>
           <View style={s.modalBox}>
             <View style={s.modalHeader}>
-              <Text style={s.modalTitle}>Utilisateurs bloqués</Text>
+              <Text style={s.modalTitle}>{tr.blockedUsersTitle}</Text>
               <TouchableOpacity onPress={() => setBlockedModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
@@ -511,7 +535,7 @@ export default function SettingsScreen({ refreshAuth }) {
             {blockedUsers.length === 0 ? (
               <View style={[s.modalScroll, s.emptyBlocked]}>
                 <Ionicons name="ban-outline" size={56} color={colors.textTertiary} />
-                <Text style={s.emptyBlockedText}>Aucun utilisateur bloqué</Text>
+                <Text style={s.emptyBlockedText}>{tr.noBlocked}</Text>
               </View>
             ) : (
               <FlatList
@@ -528,17 +552,17 @@ export default function SettingsScreen({ refreshAuth }) {
                       {item.email && <Text style={s.blockedEmail}>{item.email}</Text>}
                       {item.blockedAt && (
                         <Text style={[s.blockedEmail, { fontSize: 11, marginTop: 2 }]}>
-                          Bloqué le {new Date(item.blockedAt).toLocaleDateString('fr-FR')}
+                          {language === 'fr' ? 'Bloqué le ' : language === 'en' ? 'Blocked on ' : 'Bloqueado el '}{new Date(item.blockedAt).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'en' ? 'en-US' : 'es-ES')}
                         </Text>
                       )}
                     </View>
                     <TouchableOpacity style={s.unblockBtn} onPress={() => {
-                      Alert.alert('Débloquer', `Débloquer ${item.name || item.email} ?`, [
-                        { text: 'Annuler', style: 'cancel' },
-                        { text: 'Débloquer', onPress: () => handleUnblock(item.id) }
+                      Alert.alert(tr.unblock, `${tr.unblock} ${item.name || item.email}?`, [
+                        { text: t.common.cancel, style: 'cancel' },
+                        { text: tr.unblock, onPress: () => handleUnblock(item.id) }
                       ]);
                     }}>
-                      <Text style={s.unblockText}>Débloquer</Text>
+                      <Text style={s.unblockText}>{tr.unblock}</Text>
                     </TouchableOpacity>
                   </View>
                 )}
