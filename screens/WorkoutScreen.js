@@ -17,8 +17,10 @@ import { getWorkouts, saveWorkouts } from '../utils/db';
 import { colors } from '../theme/colors';
 import ExerciseImagePicker from '../components/ExerciseImagePicker';
 import RunningTrackerScreen from './RunningTrackerScreen';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function WorkoutScreen() {
+  const { t, language } = useLanguage();
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -953,8 +955,8 @@ export default function WorkoutScreen() {
         paddingTop: 50,
       }}>
         {[
-          { key: 'programmes', label: 'Programmes', icon: 'barbell-outline' },
-          { key: 'running', label: 'Course', icon: 'walk-outline' },
+          { key: 'programmes', label: t.workout.programmes, icon: 'barbell-outline' },
+          { key: 'running', label: t.workout.running, icon: 'walk-outline' },
         ].map(({ key, label, icon }) => (
           <TouchableOpacity
             key={key}
@@ -990,9 +992,9 @@ export default function WorkoutScreen() {
           {workouts.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="barbell-outline" size={80} color={colors.textTertiary} />
-              <Text style={styles.emptyText}>Aucun entraînement</Text>
+              <Text style={styles.emptyText}>{t.workout.noWorkout}</Text>
               <Text style={styles.emptySubtext}>
-                Créez votre premier entraînement !
+                {t.workout.createFirst}
               </Text>
             </View>
           ) : (
