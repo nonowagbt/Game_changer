@@ -15,8 +15,10 @@ import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { getFriends, addFriend, removeFriend, BOT_FRIEND } from '../utils/db';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function FriendsScreen() {
+  const { t, language } = useLanguage();
   const navigation = useNavigation();
   const [friends, setFriends] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +43,10 @@ export default function FriendsScreen() {
   const handleAddFriend = async () => {
     const input = friendInput.trim();
     if (!input) {
-      Alert.alert('Champ vide', 'Veuillez entrer un nom, pseudo ou email.');
+      Alert.alert(
+        language === 'fr' ? 'Champ vide' : language === 'en' ? 'Empty field' : 'Campo vacío',
+        language === 'fr' ? 'Veuillez entrer un nom, pseudo ou email.' : language === 'en' ? 'Please enter a name, username or email.' : 'Por favor ingresa un nombre, usuario o email.'
+      );
       return;
     }
     setIsAdding(true);
@@ -62,9 +67,15 @@ export default function FriendsScreen() {
       setFriends(updated);
       setFriendInput('');
       setShowAddFriend(false);
-      Alert.alert('✅ Ami ajouté', `${newFriend.name} a été ajouté à votre liste d'amis !`);
+      Alert.alert(
+        language === 'fr' ? '✅ Ami ajouté' : language === 'en' ? '✅ Friend added' : '✅ Amigo añadido',
+        language === 'fr' ? `${newFriend.name} a été ajouté à votre liste d'amis !` : language === 'en' ? `${newFriend.name} has been added to your friend list!` : `¡${newFriend.name} ha sido añadido a tu lista de amigos!`
+      );
     } catch (e) {
-      Alert.alert('Erreur', "Impossible d'ajouter cet ami.");
+      Alert.alert(
+        language === 'fr' ? 'Erreur' : language === 'en' ? 'Error' : 'Error',
+        language === 'fr' ? "Impossible d'ajouter cet ami." : language === 'en' ? 'Failed to add this friend.' : 'No se pudo añadir a este amigo.'
+      );
     } finally {
       setIsAdding(false);
     }
@@ -72,16 +83,19 @@ export default function FriendsScreen() {
 
   const handleRemoveFriend = (friend) => {
     if (friend.isBot) {
-      Alert.alert('Impossible', 'Vous ne pouvez pas supprimer Alex Martin de vos amis.');
+      Alert.alert(
+        language === 'fr' ? 'Impossible' : language === 'en' ? 'Impossible' : 'Imposible',
+        language === 'fr' ? 'Vous ne pouvez pas supprimer Alex Martin de vos amis.' : language === 'en' ? 'You cannot remove Alex Martin from your friends.' : 'No puedes eliminar a Alex Martin de tus amigos.'
+      );
       return;
     }
     Alert.alert(
-      'Supprimer l\'ami',
-      `Voulez-vous retirer ${friend.name} de vos amis ?`,
+      language === 'fr' ? "Supprimer l'ami" : language === 'en' ? 'Remove friend' : 'Eliminar amigo',
+      language === 'fr' ? `Voulez-vous retirer ${friend.name} de vos amis ?` : language === 'en' ? `Do you want to remove ${friend.name} from your friends?` : `¿Quieres eliminar a ${friend.name} de tus amigos?`,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: language === 'fr' ? 'Annuler' : language === 'en' ? 'Cancel' : 'Cancelar', style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: language === 'fr' ? 'Supprimer' : language === 'en' ? 'Remove' : 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             const updated = await removeFriend(friend.id);
@@ -118,7 +132,7 @@ export default function FriendsScreen() {
           <Text style={styles.friendName}>{item.name}</Text>
           {item.isBot && (
             <View style={styles.botBadge}>
-              <Text style={styles.botBadgeText}>IA</Text>
+              <Text style={styles.botBadgeText}>{language === 'fr' ? 'IA' : language === 'en' ? 'AI' : 'IA'}</Text>
             </View>
           )}
         </View>
@@ -130,7 +144,11 @@ export default function FriendsScreen() {
         )}
         <View style={styles.statusRow}>
           <View style={[styles.statusDot, item.status === 'En ligne' ? styles.statusOnline : styles.statusOffline]} />
-          <Text style={styles.statusText}>{item.status || 'Hors ligne'}</Text>
+          <Text style={styles.statusText}>
+            {item.status === 'En ligne'
+              ? (language === 'fr' ? 'En ligne' : language === 'en' ? 'Online' : 'En línea')
+              : (language === 'fr' ? 'Hors ligne' : language === 'en' ? 'Offline' : 'Desconectado')}
+          </Text>
         </View>
       </View>
 
@@ -159,7 +177,7 @@ export default function FriendsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Mes Amis</Text>
+          <Text style={styles.headerTitle}>{t.friends.title}</Text>
           <Text style={styles.headerSub}>{friends.length} ami{friends.length > 1 ? 's' : ''}</Text>
         </View>
         <TouchableOpacity style={styles.addIconBtn} onPress={() => setShowAddFriend(true)}>
@@ -174,7 +192,7 @@ export default function FriendsScreen() {
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Rechercher un ami..."
+          placeholder={language === 'fr' ? 'Rechercher un ami...' : language === 'en' ? 'Search for a friend...' : 'Buscar un amigo...'}
           placeholderTextColor={colors.textTertiary}
         />
         {searchQuery.length > 0 && (
@@ -189,17 +207,19 @@ export default function FriendsScreen() {
         <View style={styles.emptyContainer}>
           <Ionicons name="people-outline" size={70} color={colors.textTertiary} />
           <Text style={styles.emptyTitle}>
-            {searchQuery ? 'Aucun ami trouvé' : 'Aucun ami pour le moment'}
+            {searchQuery
+              ? (language === 'fr' ? 'Aucun ami trouvé' : language === 'en' ? 'No friends found' : 'No se encontraron amigos')
+              : t.friends.noFriends}
           </Text>
           <Text style={styles.emptySubtitle}>
             {searchQuery
-              ? 'Essayez avec un autre critère'
-              : 'Ajoutez vos amis pour partager vos programmes !'}
+              ? (language === 'fr' ? 'Essayez avec un autre critère' : language === 'en' ? 'Try another search term' : 'Inténtalo con otro término de búsqueda')
+              : (language === 'fr' ? 'Ajoutez vos amis pour partager vos programmes !' : language === 'en' ? 'Add your friends to share your programs!' : '¡Añade a tus amigos para compartir tus programas!')}
           </Text>
           {!searchQuery && (
             <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowAddFriend(true)}>
               <Ionicons name="person-add" size={18} color={colors.cardBackground} />
-              <Text style={styles.emptyBtnText}>Ajouter un ami</Text>
+              <Text style={styles.emptyBtnText}>{t.friends.addFriend}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -238,12 +258,14 @@ export default function FriendsScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Ajouter un ami</Text>
+              <Text style={styles.modalTitle}>{t.friends.addFriend}</Text>
               <TouchableOpacity onPress={() => { setShowAddFriend(false); setFriendInput(''); }}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSub}>Par nom, pseudo ou adresse email</Text>
+            <Text style={styles.modalSub}>
+              {language === 'fr' ? 'Par nom, pseudo ou adresse email' : language === 'en' ? 'By name, username or email address' : 'Por nombre, usuario o correo electrónico'}
+            </Text>
 
             <View style={styles.inputRow}>
               <Ionicons name="person-outline" size={20} color={colors.textSecondary} style={{ marginRight: 10 }} />
@@ -251,7 +273,7 @@ export default function FriendsScreen() {
                 style={styles.modalInput}
                 value={friendInput}
                 onChangeText={setFriendInput}
-                placeholder="Ex : thomas, @tom_fit, tom@mail.com"
+                placeholder={language === 'fr' ? 'Ex : thomas, @tom_fit, tom@mail.com' : language === 'en' ? 'E.g. thomas, @tom_fit, tom@mail.com' : 'Ej: thomas, @tom_fit, tom@mail.com'}
                 placeholderTextColor={colors.textTertiary}
                 autoCapitalize="none"
                 autoFocus
@@ -264,7 +286,7 @@ export default function FriendsScreen() {
                 style={[styles.modalBtn, styles.modalBtnSecondary]}
                 onPress={() => { setShowAddFriend(false); setFriendInput(''); }}
               >
-                <Text style={styles.modalBtnSecondaryText}>Annuler</Text>
+                <Text style={styles.modalBtnSecondaryText}>{language === 'fr' ? 'Annuler' : language === 'en' ? 'Cancel' : 'Cancelar'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalBtn, styles.modalBtnPrimary, isAdding && { opacity: 0.6 }]}
@@ -272,7 +294,10 @@ export default function FriendsScreen() {
                 disabled={isAdding}
               >
                 <Ionicons name="person-add" size={16} color={colors.cardBackground} />
-                <Text style={styles.modalBtnPrimaryText}>{isAdding ? 'Ajout...' : 'Ajouter'}</Text>
+                <Text style={styles.modalBtnPrimaryText}>{isAdding
+                  ? (language === 'fr' ? 'Ajout...' : language === 'en' ? 'Adding...' : 'Añadiendo...')
+                  : (language === 'fr' ? 'Ajouter' : language === 'en' ? 'Add' : 'Añadir')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -289,12 +314,12 @@ export default function FriendsScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalBox, { maxHeight: '70%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Nouveau message</Text>
+              <Text style={styles.modalTitle}>{language === 'fr' ? 'Nouveau message' : language === 'en' ? 'New message' : 'Nuevo mensaje'}</Text>
               <TouchableOpacity onPress={() => setShowNewMessageModal(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.modalSub}>Sélectionnez un ami</Text>
+            <Text style={styles.modalSub}>{language === 'fr' ? 'Sélectionnez un ami' : language === 'en' ? 'Select a friend' : 'Selecciona un amigo'}</Text>
             <FlatList
               data={friends}
               keyExtractor={(item) => item.id}
