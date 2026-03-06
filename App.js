@@ -18,6 +18,7 @@ import SignUpScreen from './screens/SignUpScreen';
 import { getCurrentUser } from './utils/auth';
 import { colors } from './theme/colors';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import { requestNotificationPermission, scheduleGoalReminderNotification } from './utils/notifications';
 
 const Tab = createBottomTabNavigator();
@@ -128,20 +129,23 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <NavigationContainer>
-        <StatusBar style="auto" />
-        {isAuthenticated ? (
-          <MainTabs refreshAuth={refreshAuth} />
-        ) : (
-          <AuthScreen onAuthChange={refreshAuth} />
-        )}
-      </NavigationContainer>
-    </ThemeProvider>
+    <LanguageProvider>
+      <ThemeProvider>
+        <NavigationContainer>
+          <StatusBar style="auto" />
+          {isAuthenticated ? (
+            <MainTabs refreshAuth={refreshAuth} />
+          ) : (
+            <AuthScreen onAuthChange={refreshAuth} />
+          )}
+        </NavigationContainer>
+      </ThemeProvider>
+    </LanguageProvider>
   );
 }
 
 function MainTabs({ refreshAuth }) {
+  const { t } = useLanguage();
   const screenOptions = ({ route }) => ({
     tabBarIcon: ({ focused, color, size }) => {
       let iconName;
@@ -179,16 +183,16 @@ function MainTabs({ refreshAuth }) {
 
   return (
     <Tab.Navigator screenOptions={screenOptions}>
-      <Tab.Screen name="Accueil" component={HomeScreen} />
-      <Tab.Screen name="Entraînements" component={WorkoutScreen} />
-      <Tab.Screen name="Scanner" component={ScannerScreen} />
+      <Tab.Screen name="Accueil" component={HomeScreen} options={{ title: t.nav.home }} />
+      <Tab.Screen name="Entraînements" component={WorkoutScreen} options={{ title: t.nav.workout }} />
+      <Tab.Screen name="Scanner" component={ScannerScreen} options={{ title: t.nav.scanner }} />
       <Tab.Screen
         name="Amis"
-        options={{ headerShown: false }}
+        options={{ headerShown: false, title: t.nav.friends }}
       >
         {(props) => <FriendsStack {...props} refreshAuth={refreshAuth} />}
       </Tab.Screen>
-      <Tab.Screen name="Informations">
+      <Tab.Screen name="Informations" options={{ title: t.nav.profile }}>
         {(props) => <InfoStack {...props} refreshAuth={refreshAuth} />}
       </Tab.Screen>
     </Tab.Navigator>
