@@ -14,8 +14,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { getDailyGoals, saveDailyGoals, getDailyProgress, updateDailyProgress, calculateStreaks, getUserInfo, getWeeklyGoal, saveWeeklyGoal, getWeekStart, markGymAttendance, getWeeklyGymCount, getGymAttendanceForWeek } from '../utils/db';
 import { colors } from '../theme/colors';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function HomeScreen() {
+  const { t, language } = useLanguage();
   const [goals, setGoals] = useState({ water: 2, calories: 2000 });
   const [progress, setProgress] = useState({ water: 0, calories: 0 });
   const [streaks, setStreaks] = useState({ gym: 0, eating: 0, drinking: 0 });
@@ -47,23 +49,23 @@ export default function HomeScreen() {
     // Charger l'objectif hebdomadaire et la présence
     const currentWeekStart = getWeekStart();
     const savedWeeklyGoal = await getWeeklyGoal();
-    
+
     // Vérifier si c'est un nouveau lundi et si l'objectif n'est pas défini pour cette semaine
     const today = new Date();
     const isMonday = today.getDay() === 1;
     const savedWeekStart = savedWeeklyGoal?.weekStart;
-    
+
     if (isMonday && savedWeekStart !== currentWeekStart) {
       // C'est lundi et pas d'objectif pour cette semaine
       setWeeklyGoalModal({ visible: true, value: savedWeeklyGoal?.goal?.toString() || '' });
     }
-    
+
     setWeeklyGoal(savedWeeklyGoal);
-    
+
     // Charger le nombre de fois où on est allé à la salle cette semaine
     const gymCount = await getWeeklyGymCount(currentWeekStart);
     setWeeklyGymCount(gymCount);
-    
+
     // Vérifier si on est allé à la salle aujourd'hui
     const todayKey = today.toISOString().split('T')[0];
     const attendance = await getGymAttendanceForWeek(currentWeekStart);
@@ -169,191 +171,191 @@ export default function HomeScreen() {
   };
 
   const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    padding: 30,
-    paddingTop: 50,
-    alignItems: 'center',
-    backgroundColor: colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 5,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-  },
-  card: {
-    backgroundColor: colors.cardBackground,
-    margin: 15,
-    padding: 20,
-    borderRadius: 15,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accentLine,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  cardTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  cardTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  editContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  editInput: {
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 5,
-    padding: 5,
-    width: 80,
-    textAlign: 'center',
-    backgroundColor: colors.inputBackground,
-    color: colors.inputText,
-  },
-  saveButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 5,
-    padding: 5,
-  },
-  cancelButton: {
-    backgroundColor: colors.error,
-    borderRadius: 5,
-    padding: 5,
-  },
-  progressContainer: {
-    marginBottom: 15,
-  },
-  progressBar: {
-    height: 20,
-    backgroundColor: colors.progressBackground,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 10,
-  },
-  progressFill: {
-    height: '100%',
-    backgroundColor: colors.progressFill,
-    borderRadius: 10,
-  },
-  progressText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: 8,
-    gap: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  manualButton: {
-    backgroundColor: colors.backgroundSecondary,
-    borderColor: colors.primary,
-  },
-  actionButtonText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: colors.modalBackground,
-    borderRadius: 20,
-    padding: 25,
-    width: '85%',
-    maxWidth: 400,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  modalSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    backgroundColor: colors.inputBackground,
-    color: colors.inputText,
-    marginBottom: 20,
-  },
-  modalButtons: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  modalButton: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  modalCancelButton: {
-    backgroundColor: colors.buttonSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  modalCancelText: {
-    color: colors.buttonSecondaryText,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalSaveButton: {
-    backgroundColor: colors.buttonPrimary,
-  },
-  modalSaveText: {
-    color: colors.buttonPrimaryText,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      padding: 30,
+      paddingTop: 50,
+      alignItems: 'center',
+      backgroundColor: colors.cardBackground,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    headerTitle: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.primary,
+      marginBottom: 5,
+    },
+    headerSubtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    card: {
+      backgroundColor: colors.cardBackground,
+      margin: 15,
+      padding: 20,
+      borderRadius: 15,
+      borderLeftWidth: 3,
+      borderLeftColor: colors.accentLine,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    cardTitleContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    cardTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+    editContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5,
+    },
+    editInput: {
+      borderWidth: 1,
+      borderColor: colors.inputBorder,
+      borderRadius: 5,
+      padding: 5,
+      width: 80,
+      textAlign: 'center',
+      backgroundColor: colors.inputBackground,
+      color: colors.inputText,
+    },
+    saveButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 5,
+      padding: 5,
+    },
+    cancelButton: {
+      backgroundColor: colors.error,
+      borderRadius: 5,
+      padding: 5,
+    },
+    progressContainer: {
+      marginBottom: 15,
+    },
+    progressBar: {
+      height: 20,
+      backgroundColor: colors.progressBackground,
+      borderRadius: 10,
+      overflow: 'hidden',
+      marginBottom: 10,
+    },
+    progressFill: {
+      height: '100%',
+      backgroundColor: colors.progressFill,
+      borderRadius: 10,
+    },
+    progressText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    actionsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 10,
+    },
+    actionButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 12,
+      backgroundColor: colors.backgroundSecondary,
+      borderRadius: 8,
+      gap: 5,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    manualButton: {
+      backgroundColor: colors.backgroundSecondary,
+      borderColor: colors.primary,
+    },
+    actionButtonText: {
+      fontSize: 12,
+      color: colors.text,
+      fontWeight: '600',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalContent: {
+      backgroundColor: colors.modalBackground,
+      borderRadius: 20,
+      padding: 25,
+      width: '85%',
+      maxWidth: 400,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalTitle: {
+      fontSize: 22,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 5,
+      textAlign: 'center',
+    },
+    modalSubtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 20,
+      textAlign: 'center',
+    },
+    modalInput: {
+      borderWidth: 1,
+      borderColor: colors.inputBorder,
+      borderRadius: 10,
+      padding: 15,
+      fontSize: 16,
+      backgroundColor: colors.inputBackground,
+      color: colors.inputText,
+      marginBottom: 20,
+    },
+    modalButtons: {
+      flexDirection: 'row',
+      gap: 10,
+    },
+    modalButton: {
+      flex: 1,
+      padding: 15,
+      borderRadius: 10,
+      alignItems: 'center',
+    },
+    modalCancelButton: {
+      backgroundColor: colors.buttonSecondary,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    modalCancelText: {
+      color: colors.buttonSecondaryText,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    modalSaveButton: {
+      backgroundColor: colors.buttonPrimary,
+    },
+    modalSaveText: {
+      color: colors.buttonPrimaryText,
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
     streaksContainer: {
       gap: 20,
     },
@@ -457,8 +459,8 @@ export default function HomeScreen() {
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Objectifs Quotidiens</Text>
-        <Text style={styles.headerSubtitle}>Suivez vos progrès aujourd'hui</Text>
+        <Text style={styles.headerTitle}>{t.home.todayGoals}</Text>
+        <Text style={styles.headerSubtitle}>{language === 'fr' ? "Suivez vos progrès aujourd'hui" : language === 'en' ? 'Track your progress today' : 'Sigue tu progreso hoy'}</Text>
       </View>
 
       {/* Raccourcis (limités à 3) */}
@@ -466,7 +468,7 @@ export default function HomeScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
             <Ionicons name="flash" size={24} color={colors.primary} />
-            <Text style={styles.cardTitle}>Raccourcis</Text>
+            <Text style={styles.cardTitle}>{language === 'fr' ? 'Raccourcis' : language === 'en' ? 'Shortcuts' : 'Atajos'}</Text>
           </View>
         </View>
 
@@ -474,14 +476,14 @@ export default function HomeScreen() {
           {/* Raccourci Amis */}
           <TouchableOpacity
             style={styles.shortcutCard}
-            onPress={() => navigation.navigate('Amis')}
+            onPress={() => navigation.navigate(t.nav.friends)}
           >
             <View style={styles.shortcutIconContainer}>
               <Ionicons name="people" size={22} color={colors.primary} />
             </View>
             <View style={styles.shortcutTextContainer}>
-              <Text style={styles.shortcutTitle}>Amis</Text>
-              <Text style={styles.shortcutSubtitle}>Gérer ma liste d'amis</Text>
+              <Text style={styles.shortcutTitle}>{t.friends.title}</Text>
+              <Text style={styles.shortcutSubtitle}>{language === 'fr' ? "Gérer ma liste d'amis" : language === 'en' ? 'Manage my friends list' : 'Gestionar mi lista de amigos'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -489,15 +491,15 @@ export default function HomeScreen() {
           {/* Raccourci IMC */}
           <TouchableOpacity
             style={styles.shortcutCard}
-            onPress={() => navigation.navigate('Informations')}
+            onPress={() => navigation.navigate(t.profile.myInfo)}
           >
             <View style={styles.shortcutIconContainer}>
               <Ionicons name="body" size={22} color="#F97316" />
             </View>
             <View style={styles.shortcutTextContainer}>
-              <Text style={styles.shortcutTitle}>Mon IMC</Text>
+              <Text style={styles.shortcutTitle}>{language === 'fr' ? 'Mon IMC' : language === 'en' ? 'My BMI' : 'Mi IMC'}</Text>
               <Text style={styles.shortcutSubtitle}>
-                {bmi ? `${bmi} kg/m²` : "Complétez vos mensurations"}
+                {bmi ? `${bmi} kg/m²` : (language === 'fr' ? "Complétez vos mensurations" : language === 'en' ? "Complete your measurements" : "Completa tus medidas")}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
@@ -506,14 +508,14 @@ export default function HomeScreen() {
           {/* Raccourci Entraînement */}
           <TouchableOpacity
             style={styles.shortcutCard}
-            onPress={() => navigation.navigate('Entraînements')}
+            onPress={() => navigation.navigate(t.nav.workout)}
           >
             <View style={styles.shortcutIconContainer}>
               <Ionicons name="barbell" size={22} color="#22C55E" />
             </View>
             <View style={styles.shortcutTextContainer}>
-              <Text style={styles.shortcutTitle}>Mon entraînement</Text>
-              <Text style={styles.shortcutSubtitle}>Accéder à mes séances</Text>
+              <Text style={styles.shortcutTitle}>{language === 'fr' ? 'Mon entraînement' : language === 'en' ? 'My workout' : 'Mi entrenamiento'}</Text>
+              <Text style={styles.shortcutSubtitle}>{language === 'fr' ? 'Accéder à mes séances' : language === 'en' ? 'Access my sessions' : 'Acceder a mis sesiones'}</Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -525,7 +527,7 @@ export default function HomeScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
             <Ionicons name="water" size={24} color="#3B82F6" />
-            <Text style={styles.cardTitle}>Eau</Text>
+            <Text style={styles.cardTitle}>{t.home.water}</Text>
           </View>
           {editing === 'water' ? (
             <View style={styles.editContainer}>
@@ -561,7 +563,7 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.progressFill,
-                { 
+                {
                   width: `${getProgressPercentage('water')}%`,
                   backgroundColor: '#3B82F6',
                 },
@@ -610,7 +612,7 @@ export default function HomeScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
             <Ionicons name="flame" size={24} color="#EF4444" />
-            <Text style={styles.cardTitle}>Calories</Text>
+            <Text style={styles.cardTitle}>{t.home.calories}</Text>
           </View>
           {editing === 'calories' ? (
             <View style={styles.editContainer}>
@@ -646,10 +648,10 @@ export default function HomeScreen() {
             <View
               style={[
                 styles.progressFill,
-                  {
-                    width: `${getProgressPercentage('calories')}%`,
-                    backgroundColor: colors.progressFill,
-                  },
+                {
+                  width: `${getProgressPercentage('calories')}%`,
+                  backgroundColor: colors.progressFill,
+                },
               ]}
             />
           </View>
@@ -695,7 +697,7 @@ export default function HomeScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.cardTitleContainer}>
             <Ionicons name="trophy" size={24} color="#F59E0B" />
-            <Text style={styles.cardTitle}>Récurrences</Text>
+            <Text style={styles.cardTitle}>{language === 'fr' ? 'Récurrences' : language === 'en' ? 'Streaks' : 'Rachas'}</Text>
           </View>
         </View>
 
@@ -704,7 +706,7 @@ export default function HomeScreen() {
           <View style={styles.streakItem}>
             <View style={styles.streakHeader}>
               <Ionicons name="barbell" size={20} color="#8B5CF6" />
-              <Text style={styles.streakLabel}>Salle</Text>
+              <Text style={styles.streakLabel}>{language === 'fr' ? 'Salle' : language === 'en' ? 'Gym' : 'Gimnasio'}</Text>
               {weeklyGoal && (
                 <Text style={styles.weeklyProgressText}>
                   {weeklyGymCount}/{weeklyGoal.goal}
@@ -736,18 +738,18 @@ export default function HomeScreen() {
                   color={todayGymChecked ? "#8B5CF6" : colors.textSecondary}
                 />
                 <Text style={[styles.gymCheckboxText, todayGymChecked && styles.gymCheckboxTextChecked]}>
-                  Aujourd'hui
+                  {language === 'fr' ? "Aujourd'hui" : language === 'en' ? 'Today' : 'Hoy'}
                 </Text>
               </TouchableOpacity>
             </View>
-            <Text style={styles.streakText}>{streaks.gym} jour{streaks.gym > 1 ? 's' : ''}</Text>
+            <Text style={styles.streakText}>{streaks.gym} {language === 'fr' ? 'jour' : language === 'en' ? 'day' : 'día'}{streaks.gym > 1 ? 's' : ''}</Text>
           </View>
 
           {/* Eating Streak */}
           <View style={styles.streakItem}>
             <View style={styles.streakHeader}>
               <Ionicons name="restaurant" size={20} color="#10B981" />
-              <Text style={styles.streakLabel}>Manger</Text>
+              <Text style={styles.streakLabel}>{language === 'fr' ? 'Manger' : language === 'en' ? 'Eating' : 'Comer'}</Text>
             </View>
             <View style={styles.streakIcons}>
               {streaks.eating > 0 ? (
@@ -763,14 +765,14 @@ export default function HomeScreen() {
                 <Ionicons name="flame-outline" size={24} color={colors.textSecondary} />
               )}
             </View>
-            <Text style={styles.streakText}>{streaks.eating} jour{streaks.eating > 1 ? 's' : ''}</Text>
+            <Text style={styles.streakText}>{streaks.eating} {language === 'fr' ? 'jour' : language === 'en' ? 'day' : 'día'}{streaks.eating > 1 ? 's' : ''}</Text>
           </View>
 
           {/* Drinking Streak */}
           <View style={styles.streakItem}>
             <View style={styles.streakHeader}>
               <Ionicons name="water" size={20} color="#3B82F6" />
-              <Text style={styles.streakLabel}>Boire</Text>
+              <Text style={styles.streakLabel}>{language === 'fr' ? 'Boire' : language === 'en' ? 'Drinking' : 'Beber'}</Text>
             </View>
             <View style={styles.streakIcons}>
               {streaks.drinking > 0 ? (
@@ -786,7 +788,7 @@ export default function HomeScreen() {
                 <Ionicons name="flame-outline" size={24} color={colors.textSecondary} />
               )}
             </View>
-            <Text style={styles.streakText}>{streaks.drinking} jour{streaks.drinking > 1 ? 's' : ''}</Text>
+            <Text style={styles.streakText}>{streaks.drinking} {language === 'fr' ? 'jour' : language === 'en' ? 'day' : 'día'}{streaks.drinking > 1 ? 's' : ''}</Text>
           </View>
         </View>
       </View>
@@ -801,17 +803,20 @@ export default function HomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              Ajouter {manualInputModal.type === 'water' ? "de l'eau" : 'des calories'}
+              {language === 'fr' ? 'Ajouter ' : language === 'en' ? 'Add ' : 'Añadir '}
+              {manualInputModal.type === 'water' ? t.home.water.toLowerCase() : t.home.calories.toLowerCase()}
             </Text>
             <Text style={styles.modalSubtitle}>
-              Entrez la quantité à ajouter
+              {language === 'fr' ? 'Entrez la quantité à ajouter' : language === 'en' ? 'Enter the amount to add' : 'Ingrese la cantidad a añadir'}
             </Text>
             <TextInput
               style={styles.modalInput}
               value={manualInputModal.value}
               onChangeText={(text) => setManualInputModal({ ...manualInputModal, value: text })}
               keyboardType="numeric"
-              placeholder={manualInputModal.type === 'water' ? 'Litres (ex: 0.5)' : 'Calories (ex: 150)'}
+              placeholder={manualInputModal.type === 'water'
+                ? (language === 'fr' ? 'Litres (ex: 0.5)' : language === 'en' ? 'Liters (e.g. 0.5)' : 'Litros (ej: 0.5)')
+                : (language === 'fr' ? 'Calories (ex: 150)' : language === 'en' ? 'Calories (e.g. 150)' : 'Calorías (ej: 150)')}
               autoFocus
             />
             <View style={styles.modalButtons}>
@@ -819,13 +824,13 @@ export default function HomeScreen() {
                 style={[styles.modalButton, styles.modalCancelButton]}
                 onPress={() => setManualInputModal({ visible: false, type: null, value: '' })}
               >
-                <Text style={styles.modalCancelText}>Annuler</Text>
+                <Text style={styles.modalCancelText}>{language === 'fr' ? 'Annuler' : language === 'en' ? 'Cancel' : 'Cancelar'}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalButton, styles.modalSaveButton]}
                 onPress={handleSaveManualInput}
               >
-                <Text style={styles.modalSaveText}>Ajouter</Text>
+                <Text style={styles.modalSaveText}>{language === 'fr' ? 'Ajouter' : language === 'en' ? 'Add' : 'Añadir'}</Text>
               </TouchableOpacity>
             </View>
           </View>
